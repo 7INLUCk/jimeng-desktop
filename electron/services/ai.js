@@ -110,9 +110,10 @@ const SEEDANCE_SYSTEM_PROMPT = `你是即梦 Seedance 2.0「全能参考」模�
 
 class AIService {
   constructor(apiKey, model) {
-    this.apiKey = apiKey || process.env.OPENROUTER_API_KEY;
-    this.model = model || 'xiaomi/mimo-v2-pro';
-    this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    // 优先使用传入的配置，否则使用阿里云百炼 GLM-5（免费）
+    this.apiKey = apiKey || 'sk-sp-7902af5b0f614c73a7fc8103f1b36ae3';
+    this.model = model || 'glm-5';
+    this.baseUrl = 'https://coding.dashscope.aliyuncs.com/v1/chat/completions';
   }
 
   async rewritePrompt(userInput) {
