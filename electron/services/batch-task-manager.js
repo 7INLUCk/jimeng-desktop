@@ -199,12 +199,14 @@ class BatchTaskManager {
   async _submitNextTask() {
     const pendingTask = this.tasks.find(t => t.status === BatchTaskStatus.PENDING);
     if (!pendingTask) {
-      // 所有任务已执行
-      const allCompleted = this.tasks.every(
-        t => t.status === BatchTaskStatus.COMPLETED || t.status === BatchTaskStatus.DOWNLOADED
+      // 所有任务已执行（完成、下载或失败都算"已执行"）
+      const allDone = this.tasks.every(
+        t => t.status === BatchTaskStatus.COMPLETED
+          || t.status === BatchTaskStatus.DOWNLOADED
+          || t.status === BatchTaskStatus.FAILED
       );
-      if (allCompleted && this.running) {
-        console.log('[批量任务] 所有任务已完成');
+      if (allDone && this.running) {
+        console.log('[批量任务] 所有任务已执行完毕');
         this._onBatchComplete();
       }
       return;
@@ -233,11 +235,17 @@ class BatchTaskManager {
         pendingTask.status = BatchTaskStatus.FAILED;
         pendingTask.error = result.error;
         this._persistTasks();
+        // 失败后跳过，继续执行下一个任务
+        console.log(`[批量任务] 任务 ${pendingTask.index} 失败: ${result.error}，跳过继续`);
+        await this._submitNextTask();
       }
     } catch (e) {
       pendingTask.status = BatchTaskStatus.FAILED;
       pendingTask.error = e.message;
       this._persistTasks();
+      // 异常后跳过，继续执行下一个任务
+      console.log(`[批量任务] 任务 ${pendingTask.index} 异常: ${e.message}，跳过继续`);
+      await this._submitNextTask();
     }
   }
 
@@ -329,11 +337,36 @@ class BatchTaskManager {
       this.batchMetadata.completedAt = new Date().toISOString();
     }
 
+    // 统计结果
+    const succeeded = this.tasks.filter(
+      t => t.status === BatchTaskStatus.COMPLETED || t.status === BatchTaskStatus.DOWNLOADED
+    ).length;
+    const failed = this.tasks.filter(t => t.status === BatchTaskStatus.FAILED).length;
+
     console.log(`[批量任务] 批次完成: ${this.batchMetadata?.name}`);
+    console.log(`[批量任务] 结果: ${succeeded} 成功 / ${failed} 失败`);
     console.log(`[批量任务] 文件保存在: ${this.batchMetadata?.downloadDir}`);
+
+    // 通知渲染进程（如果有回调）
+    if (this._onCompleteCallback) {
+      this._onCompleteCallback({
+        batch: this.batchMetadata,
+        tasks: this.tasks,
+        succeeded,
+        failed,
+        total: this.tasks.length,
+      });
+    }
 
     // 保存批次摘要
     this._saveBatchSummary();
+  }
+
+  /**
+   * 设置批次完成回调
+   */
+  setOnCompleteCallback(callback) {
+    this._onCompleteCallback = callback;
   }
 
   /**

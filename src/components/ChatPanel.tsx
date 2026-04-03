@@ -171,18 +171,26 @@ function EmptyState({ onPromptClick }: { onPromptClick: (prompt: string) => void
 }
 
 // ── Onboarding Overlay (问题6：新手引导) ──
-function OnboardingOverlay({ onDismiss }: { onDismiss: () => void }) {
-  const steps = [
+function OnboardingOverlay({ onDismiss, isLoggedIn }: { onDismiss: () => void; isLoggedIn: boolean }) {
+  const loggedInSteps = [
+    { icon: <Type size={22} />, title: '输入描述', desc: '用自然语言描述你想生成的视频' },
+    { icon: <Video size={22} />, title: '等待出片', desc: 'AI 自动优化并生成视频' },
+  ];
+
+  const loggedOutSteps = [
     { icon: <Globe size={22} />, title: '登录即梦', desc: '打开浏览器，扫码登录即梦账号' },
     { icon: <Type size={22} />, title: '输入描述', desc: '用自然语言描述你想生成的视频' },
     { icon: <Video size={22} />, title: '等待出片', desc: 'AI 自动优化并生成视频' },
   ];
 
+  const steps = isLoggedIn ? loggedInSteps : loggedOutSteps;
+  const stepCount = steps.length;
+
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-overlay-in">
       <div className="bg-surface-1 border border-border rounded-2xl p-8 max-w-sm w-full mx-4 shadow-[var(--shadow-elevated)] animate-card-pop">
         <h3 className="text-base font-semibold text-text-primary text-center mb-1">欢迎使用 VidClaw</h3>
-        <p className="text-xs text-text-muted text-center mb-6">3 步开始创作</p>
+        <p className="text-xs text-text-muted text-center mb-6">{stepCount} 步开始创作</p>
 
         <div className="space-y-4 mb-8">
           {steps.map((step, i) => (
@@ -440,6 +448,44 @@ function ConfirmCard({
             </p>
           )}
 
+          {/* 素材映射表 */}
+          {allMaterials.length > 0 && (
+            <div className="mb-3 bg-surface-3 rounded-lg px-3 py-2.5 border border-border-subtle">
+              <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                <span>📋</span> 素材映射
+              </p>
+              <div className="space-y-1.5">
+                {(materials?.images || []).map((m, i) => (
+                  <p key={`img-${i}`} className="text-xs text-text-secondary flex items-center gap-1.5">
+                    <span>🖼️</span>
+                    <span className="text-accent font-medium">@图片{i + 1}</span>
+                    <span className="text-text-muted">→</span>
+                    <span>你的第{i + 1}张图片</span>
+                    <span className="text-text-disabled">（{m.name?.replace(/^图片\d+$/, '') || m.name}）</span>
+                  </p>
+                ))}
+                {(materials?.videos || []).map((m, i) => (
+                  <p key={`vid-${i}`} className="text-xs text-text-secondary flex items-center gap-1.5">
+                    <span>🎬</span>
+                    <span className="text-accent font-medium">@视频{i + 1}</span>
+                    <span className="text-text-muted">→</span>
+                    <span>你的第{i + 1}个视频</span>
+                    <span className="text-text-disabled">（{m.name?.replace(/^视频\d+$/, '') || m.name}）</span>
+                  </p>
+                ))}
+                {(materials?.audios || []).map((m, i) => (
+                  <p key={`aud-${i}`} className="text-xs text-text-secondary flex items-center gap-1.5">
+                    <span>🎵</span>
+                    <span className="text-accent font-medium">@音频{i + 1}</span>
+                    <span className="text-text-muted">→</span>
+                    <span>你的第{i + 1}个音频</span>
+                    <span className="text-text-disabled">（{m.name?.replace(/^音频\d+$/, '') || m.name}）</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 素材预览 */}
           {allMaterials.length > 0 && (
             <div className="mb-3">
@@ -575,6 +621,9 @@ export function ChatPanel() {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [pendingTask, setPendingTask] = useState<any>(null);
   const [loginPollTimer, setLoginPollTimer] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState('');
+  const [lastFiles, setLastFiles] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -824,14 +873,17 @@ export function ChatPanel() {
     };
 
     addMessage(userMsg);
+    setLastPrompt(input.trim());
+    setLastFiles([...selectedFiles]);
     setInput('');
     setSubmitting(true);
+    setIsAiThinking(true);
     setGuidedStep('task-drafting');
     setStatusText('🧠 AI 正在优化提示词...');
 
     try {
       let result;
-      
+
       if (hasFiles) {
         // 有素材时使用 Seedance 模式改写
         result = await window.api.prepareTaskForSeedance(userMsg.content, materials);
@@ -880,6 +932,7 @@ export function ChatPanel() {
       setGuidedStep('logged-in-ready');
     } finally {
       setSubmitting(false);
+      setIsAiThinking(false);
       setStatusText('');
     }
   }
@@ -986,6 +1039,16 @@ export function ChatPanel() {
     });
   }
 
+  function handleRetry() {
+    if (!lastPrompt) return;
+    setInput(lastPrompt);
+    setSelectedFiles([...lastFiles]);
+    // Use setTimeout to ensure state updates before send
+    setTimeout(() => {
+      handleSend();
+    }, 50);
+  }
+
   // Listen for progress events
   useEffect(() => {
     const removeProgress = window.api.onProgress((data) => {
@@ -1025,6 +1088,14 @@ export function ChatPanel() {
           content: `❌ 队列任务失败: ${data.data?.error}`,
           timestamp: new Date(),
           type: 'error',
+        });
+      } else if (data.event === 'batch-complete') {
+        const { succeeded, failed, total } = data.data;
+        addMessage({
+          id: Date.now().toString() + '_bc',
+          role: 'assistant',
+          content: `📦 批量任务完成！\n✅ ${succeeded} 成功 / ❌ ${failed} 失败 / 共 ${total} 个任务`,
+          timestamp: new Date(),
         });
       }
     });
@@ -1078,13 +1149,13 @@ export function ChatPanel() {
     textareaRef.current?.focus();
   }
 
-  const canInput = guidedStep === 'logged-in-ready' || guidedStep === 'task-done' || guidedStep === 'batch-collecting';
+  const canInput = (guidedStep === 'logged-in-ready' || guidedStep === 'task-done' || guidedStep === 'batch-collecting') && !isAiThinking;
   const showInputArea = ['logged-in-ready', 'task-drafting', 'task-confirming', 'task-executing', 'task-done', 'batch-collecting'].includes(guidedStep);
 
   return (
     <div className="flex flex-col h-full bg-surface-0 relative">
       {/* Onboarding Overlay (问题6) */}
-      {showOnboarding && <OnboardingOverlay onDismiss={handleDismissOnboarding} />}
+      {showOnboarding && <OnboardingOverlay onDismiss={handleDismissOnboarding} isLoggedIn={!!useStore.getState().isLoggedIn} />}
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-border-subtle flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -1114,6 +1185,7 @@ export function ChatPanel() {
                   onGuideClick={msg.type === 'guide-button' && guidedStep === 'welcome' ? handleReady : undefined}
                   onConfirm={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleConfirmTask : undefined}
                   onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleEditTask : undefined}
+                  onRetry={msg.type === 'error' && lastPrompt ? handleRetry : undefined}
                   task={msg.type === 'ai-rewrite' ? msg.data : undefined}
                   onDurationChange={setSelectedDuration}
                   onRatioChange={setSelectedRatio}
@@ -1126,7 +1198,7 @@ export function ChatPanel() {
                 <div className="bg-surface-2 border border-border-subtle rounded-xl px-4 py-3 max-w-xs">
                   <div className="flex items-center gap-2.5">
                     <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-text-muted">{statusText || '处理中...'}</span>
+                    <span className="text-xs text-text-muted">{isAiThinking ? 'AI 正在思考...' : (statusText || '处理中...')}</span>
                   </div>
                 </div>
               </div>
@@ -1150,15 +1222,46 @@ export function ChatPanel() {
 
       {/* File preview */}
       {selectedFiles.length > 0 && showInputArea && (
-        <div className="px-6 py-2 border-t border-border-subtle flex items-center gap-2 flex-wrap flex-shrink-0">
-          {selectedFiles.map((file, i) => (
-            <div key={i} className="flex items-center gap-1.5 bg-surface-2 border border-border-subtle rounded-lg px-3 py-1.5 text-xs animate-fade-in">
-              <span className="text-text-primary truncate max-w-[150px]">{file.split('/').pop()}</span>
-              <button onClick={() => removeFile(i)} className="text-text-muted hover:text-error transition-colors">
-                <X size={12} />
-              </button>
-            </div>
-          ))}
+        <div className="px-6 py-2 border-t border-border-subtle flex-shrink-0">
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))' }}>
+            {selectedFiles.map((file, i) => {
+              const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file);
+              const isVideo = /\.(mp4|mov|avi|webm)$/i.test(file);
+              return (
+                <div key={i} className="relative group animate-fade-in">
+                  <div className="w-[80px] h-[80px] rounded-lg overflow-hidden bg-surface-2 border border-border-subtle flex items-center justify-center">
+                    {isImage ? (
+                      <img
+                        src={`file://${file}`}
+                        alt={file.split('/').pop()}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : isVideo ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-2xl">🎬</span>
+                        <span className="text-[9px] text-text-muted">视频</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-2xl">🎵</span>
+                        <span className="text-[9px] text-text-muted">音频</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-error text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={10} />
+                  </button>
+                  <p className="text-[9px] text-text-muted text-center mt-0.5 truncate max-w-[80px]">
+                    {file.split('/').pop()}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1233,12 +1336,13 @@ function getStepDescription(step: GuidedStep): string {
 }
 
 // ── Message Bubble ──
-function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, task, onDurationChange, onRatioChange }: {
+function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRetry, task, onDurationChange, onRatioChange }: {
   msg: Message;
   onDownload?: () => void;
   onGuideClick?: () => void;
   onConfirm?: () => void;
   onEdit?: () => void;
+  onRetry?: () => void;
   task?: any;
   onDurationChange?: (d: number) => void;
   onRatioChange?: (r: string) => void;
@@ -1360,6 +1464,17 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, task,
         }`}
       >
         <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
+        {/* Error retry button */}
+        {msg.type === 'error' && onRetry && (
+          <button
+            onClick={onRetry}
+            className="mt-2.5 flex items-center gap-1.5 text-xs text-error hover:text-error/80 font-medium underline underline-offset-2 transition-colors"
+          >
+            <RefreshCw size={12} />
+            重试
+          </button>
+        )}
 
         {/* Result download button */}
         {msg.type === 'result' && msg.data && (

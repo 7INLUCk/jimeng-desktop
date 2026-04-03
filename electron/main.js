@@ -832,6 +832,13 @@ function registerIpcHandlers() {
       const automation = ensureAutomationService();
       const downloadDir = settings.downloadDir || path.join(app.getPath('downloads'), '即梦');
       batchTaskManager = new BatchTaskManager(automation, downloadDir);
+      // 批量完成时通知渲染进程
+      batchTaskManager.setOnCompleteCallback((summary) => {
+        sendToRenderer('task:progress', {
+          event: 'batch-complete',
+          data: summary,
+        });
+      });
     }
     return batchTaskManager;
   }

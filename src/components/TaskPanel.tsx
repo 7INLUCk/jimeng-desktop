@@ -1,8 +1,8 @@
-import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ListTodo, Clock, Loader2, CheckCircle, XCircle,
   Download, Play, Trash2, RefreshCw, Film, Image as ImageIcon,
-  ArrowRight, FolderOpen
+  ArrowRight, FolderOpen, StopCircle
 } from 'lucide-react';
 import { useStore, type TaskRecord, type TaskFilter } from '../store';
 
@@ -36,7 +36,13 @@ const filterTabs: { key: TaskFilter; label: string }[] = [
 ];
 
 // ── Active Task Card (generating / queued / uploading / pending) ──
-function ActiveTaskCard({ task }: { task: TaskRecord }) {
+function ActiveTaskCard({ task, onDragStart, onDragOver, onDrop, draggable }: {
+  task: TaskRecord;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  draggable?: boolean;
+}) {
   const { updateTask } = useStore();
 
   const isGenerating = task.status === 'generating';
@@ -44,11 +50,19 @@ function ActiveTaskCard({ task }: { task: TaskRecord }) {
   const progress = task.progress ?? 0;
 
   return (
-    <div className="bg-surface-2 border border-border-subtle rounded-lg p-3.5 animate-fade-in-up">
+    <div
+      className="bg-surface-2 border border-border-subtle rounded-lg p-3.5 animate-fade-in-up transition-all duration-150"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      style={{ cursor: draggable ? 'grab' : 'default', opacity: draggable ? 1 : 0.95 }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {/* Title row */}
           <div className="flex items-center gap-2 mb-1">
+            {draggable && <span className="text-text-disabled cursor-grab select-none">⠿</span>}
             <span className="text-xs">
               {isGenerating ? '🔄' : isQueued ? '⏳' : '📤'}
             </span>
@@ -249,7 +263,7 @@ function FailedTaskCard({ task }: { task: TaskRecord }) {
 
 // ── Main TaskPanel ──
 export function TaskPanel() {
-  const { tasks, activeTaskFilter, setFilter, highlightedTaskId, setHighlightedTaskId } = useStore();
+  const { tasks, activeTaskFilter, setFilter, highlightedTaskId, setHighlightedTaskId, updateTask } = useStore();
 
   // Filter tasks
   const { activeTasks, completedTasks, failedTasks } = useMemo(() => {
@@ -271,6 +285,36 @@ export function TaskPanel() {
   const hasAnyTasks = tasks.length > 0;
   const generatingTasks = filteredTasks.activeTasks.filter(t => t.status === 'generating');
   const queuedTasks = filteredTasks.activeTasks.filter(t => ['queued', 'pending', 'uploading'].includes(t.status));
+
+  // Drag and drop state for active tasks
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((taskId: string) => (e: React.DragEvent) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback((targetTaskId: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedTaskId || draggedTaskId === targetTaskId) return;
+    // Reorder tasks: move dragged task before target task
+    const taskIds = tasks.map(t => t.id);
+    const dragIdx = taskIds.indexOf(draggedTaskId);
+    const targetIdx = taskIds.indexOf(targetTaskId);
+    if (dragIdx === -1 || targetIdx === -1) return;
+    const newTasks = [...tasks];
+    const [moved] = newTasks.splice(dragIdx, 1);
+    newTasks.splice(targetIdx, 0, moved);
+    // Update store with reordered tasks
+    useStore.setState({ tasks: newTasks });
+    try { localStorage.setItem('vidclaw_tasks', JSON.stringify(newTasks)); } catch {}
+    setDraggedTaskId(null);
+  }, [draggedTaskId, tasks]);
 
   // Clear highlight after delay
   useEffect(() => {
@@ -354,10 +398,29 @@ export function TaskPanel() {
                   <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
                     {generatingTasks.length}
                   </span>
+                  {generatingTasks.length > 0 && (
+                    <span className="text-[10px] text-text-disabled">
+                      · 预计还需 ~{generatingTasks.length * 3} 分钟
+                    </span>
+                  )}
+                  <button
+                    onClick={() => generatingTasks.forEach(t => updateTask(t.id, { status: 'failed', error: '用户取消', completedAt: Date.now() }))}
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-150"
+                  >
+                    <StopCircle size={11} />
+                    全部取消
+                  </button>
                 </h3>
                 <div className="space-y-2">
                   {generatingTasks.map(task => (
-                    <ActiveTaskCard key={task.id} task={task} />
+                    <ActiveTaskCard
+                      key={task.id}
+                      task={task}
+                      draggable
+                      onDragStart={handleDragStart(task.id)}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop(task.id)}
+                    />
                   ))}
                 </div>
               </section>
@@ -372,10 +435,22 @@ export function TaskPanel() {
                   <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
                     {queuedTasks.length}
                   </span>
+                  {queuedTasks.length > 0 && (
+                    <span className="text-[10px] text-text-disabled">
+                      · 预计还需 ~{(generatingTasks.length + queuedTasks.length) * 3} 分钟
+                    </span>
+                  )}
                 </h3>
                 <div className="space-y-2">
                   {queuedTasks.map(task => (
-                    <ActiveTaskCard key={task.id} task={task} />
+                    <ActiveTaskCard
+                      key={task.id}
+                      task={task}
+                      draggable
+                      onDragStart={handleDragStart(task.id)}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop(task.id)}
+                    />
                   ))}
                 </div>
               </section>
@@ -390,6 +465,19 @@ export function TaskPanel() {
                   <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
                     {filteredTasks.completedTasks.length}
                   </span>
+                  <button
+                    onClick={() => filteredTasks.completedTasks.forEach(task => {
+                      if (task.resultUrl) {
+                        window.api.downloadTask({ url: task.resultUrl, prompt: task.prompt }).then((res: any) => {
+                          if (res.success) updateTask(task.id, { localPath: res.filepath, status: 'downloaded' });
+                        });
+                      }
+                    })}
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-text-muted hover:text-brand hover:bg-brand/10 transition-all duration-150"
+                  >
+                    <Download size={11} />
+                    全部下载
+                  </button>
                 </h3>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 stagger-children">
                   {filteredTasks.completedTasks.map(task => (
