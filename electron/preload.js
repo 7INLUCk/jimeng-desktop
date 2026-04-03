@@ -83,4 +83,12 @@ contextBridge.exposeInMainWorld('api', {
   getBatchStatus: () => ipcRenderer.invoke('batch:status'),
   updateBatchTask: (taskId, updates) => ipcRenderer.invoke('batch:update-task', { taskId, updates }),
   deleteBatchTask: (taskId) => ipcRenderer.invoke('batch:delete-task', { taskId }),
+
+  // 通知
+  sendTaskNotify: (task) => ipcRenderer.invoke('task:notify', task),
+  onNotificationClick: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('notification-click', handler);
+    return () => ipcRenderer.removeListener('notification-click', handler);
+  },
 });

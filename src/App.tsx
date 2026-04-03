@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { ChatPanel } from './components/ChatPanel';
-import { ResultsPanel } from './components/ResultsPanel';
+import { TaskPanel } from './components/TaskPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Sidebar } from './components/Sidebar';
-import { BatchTaskPanel, BatchStatusMini } from './components/BatchTaskPanel';
+import { BatchTaskPanel } from './components/BatchTaskPanel';
 import { Maximize2, Minimize2, PawPrint } from 'lucide-react';
 
 declare global {
@@ -40,6 +40,7 @@ declare global {
       onComplete: (callback: (data: any) => void) => () => void;
       onLoginRequired: (callback: () => void) => () => void;
       onLoginDetected: (callback: () => void) => () => void;
+      onNotificationClick: (callback: (data: { taskId: string }) => void) => () => void;
       // Phase 1-3: 结构化自动化 API
       navigateToGenerate: () => Promise<{ success: boolean; error?: string }>;
       switchToSeedanceMode: () => Promise<{ success: boolean; mode?: string; error?: string }>;
@@ -59,6 +60,8 @@ declare global {
       getBatchStatus: () => Promise<{ success: boolean; batch?: any; tasks?: any[]; statusCounts?: any; running?: boolean; error?: string }>;
       updateBatchTask: (taskId: string, updates: any) => Promise<{ success: boolean; task?: any; error?: string }>;
       deleteBatchTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+      // 通知
+      sendTaskNotify: (task: { id: string; prompt: string }) => Promise<void>;
     };
   }
 }
@@ -67,7 +70,7 @@ export default function App() {
   const {
     appState,
     setAppState,
-    setSettings, setResults, activePanel,
+    setSettings, activePanel,
     taskMode, batchTasks,
   } = useStore();
 
@@ -81,13 +84,11 @@ export default function App() {
   // 监听后端事件
   useEffect(() => {
     const removeLogin = window.api.onLoginRequired(() => {
-      // 登录过期等情况，回到 welcome 步骤
       useStore.getState().setGuidedStep('welcome');
       useStore.getState().setIsLoggedIn(false);
     });
 
     const removeLoginDetected = window.api.onLoginDetected(() => {
-      // 后端检测到登录成功
       const store = useStore.getState();
       store.setIsLoggedIn(true);
       store.setGuidedStep('logged-in-ready');
@@ -99,23 +100,26 @@ export default function App() {
       });
     });
 
+    // 监听通知点击 → 切换到任务面板并高亮任务
+    const removeNotificationClick = window.api.onNotificationClick?.(({ taskId }) => {
+      const store = useStore.getState();
+      store.setActivePanel('results');
+      store.setHighlightedTaskId(taskId);
+    });
+
     return () => {
       removeLogin();
       removeLoginDetected();
+      removeNotificationClick?.();
     };
   }, []);
 
   async function init() {
     try {
-      // 加载设置
       const savedSettings = await window.api.getSettings();
       if (savedSettings) setSettings(savedSettings);
 
-      // 加载已有结果
-      const { results } = await window.api.getResults();
-      if (results?.length) setResults(results);
-
-      // 直接进入就绪状态，不自动开浏览器
+      // 任务数据从 localStorage 自动加载（store.ts 中处理）
       setAppState('ready');
     } catch (err) {
       console.error('初始化失败:', err);
@@ -147,12 +151,10 @@ export default function App() {
 
       {/* 主内容区 */}
       <main className="flex-1 flex min-w-0">
-        {/* 对话/结果/设置面板 */}
+        {/* 对话/任务/设置面板 */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* 批量任务状态栏 */}
-          <BatchStatusMini />
           {activePanel === 'chat' && <ChatPanel />}
-          {activePanel === 'results' && <ResultsPanel />}
+          {activePanel === 'results' && <TaskPanel />}
           {activePanel === 'settings' && <SettingsPanel />}
         </div>
 

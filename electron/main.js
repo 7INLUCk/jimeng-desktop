@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -219,6 +219,24 @@ function sendToRenderer(channel, data) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, data);
   }
+}
+
+// ===== Mac 原生通知 =====
+function sendTaskNotification(task) {
+  if (!Notification.isSupported()) return;
+  const notif = new Notification({
+    title: 'VidClaw',
+    body: `✅ 「${(task.prompt || '').slice(0, 20)}」已生成完成`,
+    silent: false,
+  });
+  notif.on('click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('notification-click', { taskId: task.id });
+    }
+  });
+  notif.show();
 }
 
 // ===== 确保 AI 服务已初始化 =====
@@ -924,6 +942,12 @@ function registerIpcHandlers() {
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  // ---- 任务完成通知 ----
+  ipcMain.handle('task:notify', async (_event, task) => {
+    sendTaskNotification(task);
+    return { success: true };
   });
 }
 

@@ -108,6 +108,29 @@ export interface UploadResult {
   error?: string;
 }
 
+// ===== 任务管理 =====
+export interface TaskRecord {
+  id: string;
+  prompt: string;
+  status: 'pending' | 'uploading' | 'queued' | 'generating' | 'completed' | 'failed' | 'downloaded';
+  progress?: number;        // 0-100
+  queuePosition?: number;
+  estimatedMinutes?: number;
+  taskId?: string;          // 即梦返回的任务 ID
+  model: string;
+  duration: number;
+  materials: Array<{ path: string; type: string; storeUri?: string }>;
+  resultUrl?: string;
+  localPath?: string;
+  thumbnailUrl?: string;
+  error?: string;
+  createdAt: number;        // timestamp
+  completedAt?: number;
+  retryCount: number;
+}
+
+export type TaskFilter = 'all' | 'active' | 'completed' | 'failed';
+
 // 引导式流程步骤
 export type GuidedStep =
   | 'welcome'           // 初始欢迎，等用户确认
@@ -163,6 +186,11 @@ interface AppState {
     answeredQuestions: string[];
   } | null;
 
+  // 任务管理
+  tasks: TaskRecord[];
+  activeTaskFilter: TaskFilter;
+  highlightedTaskId: string | null;
+
   // Actions
   setAppState: (state: 'loading' | 'ready') => void;
   setStatusMsg: (msg: string) => void;
@@ -184,6 +212,13 @@ interface AppState {
   setBatchTasks: (tasks: BatchTaskItem[]) => void;
   setBatchInfo: (info: BatchInfo | null) => void;
   setBatchCollectingData: (data: any | null) => void;
+  // 任务管理 Actions
+  addTask: (task: TaskRecord) => void;
+  updateTask: (id: string, updates: Partial<TaskRecord>) => void;
+  removeTask: (id: string) => void;
+  retryTask: (id: string) => void;
+  setFilter: (filter: TaskFilter) => void;
+  setHighlightedTaskId: (id: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -218,6 +253,16 @@ export const useStore = create<AppState>((set) => ({
   batchInfo: null,
   batchCollectingData: null,
 
+  // 任务管理初始状态
+  tasks: (() => {
+    try {
+      const saved = localStorage.getItem('vidclaw_tasks');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  })(),
+  activeTaskFilter: 'all',
+  highlightedTaskId: null,
+
   setAppState: (appState) => set({ appState }),
   setStatusMsg: (statusMsg) => set({ statusMsg }),
   setBrowserReady: (browserReady) => set({ browserReady }),
@@ -245,4 +290,34 @@ export const useStore = create<AppState>((set) => ({
   setBatchTasks: (batchTasks) => set({ batchTasks }),
   setBatchInfo: (batchInfo) => set({ batchInfo }),
   setBatchCollectingData: (batchCollectingData) => set({ batchCollectingData }),
+  // 任务管理 Actions
+  addTask: (task) => set((s) => {
+    const tasks = [task, ...s.tasks];
+    try { localStorage.setItem('vidclaw_tasks', JSON.stringify(tasks)); } catch {}
+    return { tasks };
+  }),
+  updateTask: (id, updates) => set((s) => {
+    const tasks = s.tasks.map(t => t.id === id ? { ...t, ...updates } : t);
+    try { localStorage.setItem('vidclaw_tasks', JSON.stringify(tasks)); } catch {}
+    return { tasks };
+  }),
+  removeTask: (id) => set((s) => {
+    const tasks = s.tasks.filter(t => t.id !== id);
+    try { localStorage.setItem('vidclaw_tasks', JSON.stringify(tasks)); } catch {}
+    return { tasks };
+  }),
+  retryTask: (id) => set((s) => {
+    const tasks = s.tasks.map(t => t.id === id ? {
+      ...t,
+      status: 'pending' as const,
+      error: undefined,
+      progress: undefined,
+      retryCount: t.retryCount + 1,
+      completedAt: undefined,
+    } : t);
+    try { localStorage.setItem('vidclaw_tasks', JSON.stringify(tasks)); } catch {}
+    return { tasks };
+  }),
+  setFilter: (activeTaskFilter) => set({ activeTaskFilter }),
+  setHighlightedTaskId: (highlightedTaskId) => set({ highlightedTaskId }),
 }));
