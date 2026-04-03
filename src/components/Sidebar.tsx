@@ -1,4 +1,4 @@
-import { MessageSquare, Image, Settings, Download } from 'lucide-react';
+import { MessageSquare, Image, Settings, Download, PawPrint } from 'lucide-react';
 import { useStore } from '../store';
 
 export function Sidebar() {
@@ -13,8 +13,8 @@ export function Sidebar() {
   return (
     <aside className="w-[60px] bg-surface-1 border-r border-border flex flex-col items-center py-3 flex-shrink-0">
       {/* Logo */}
-      <div className="w-9 h-9 rounded-lg bg-brand-gradient flex items-center justify-center text-[13px] font-bold text-white shadow-[var(--shadow-brand)] mb-5">
-        即
+      <div className="w-9 h-9 rounded-lg bg-brand-gradient flex items-center justify-center text-white shadow-[var(--shadow-brand)] mb-5">
+        <PawPrint size={18} strokeWidth={2.2} />
       </div>
 
       {/* Navigation */}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, Layers, FileStack } from 'lucide-react';
+import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, Layers, FileStack, Sparkles, Globe, Type, Video, ChevronDown, ChevronUp, AlertTriangle, ArrowUp } from 'lucide-react';
 import { useStore, type Message, type GuidedStep, type TaskMaterial, type TaskMode, type BatchTaskItem } from '../store';
 
 // ── Mode Select Card (选择单个/批量) ──
@@ -126,6 +126,164 @@ function BatchConfirmCard({
   );
 }
 
+// ── Empty State Card (问题2：空态引导) ──
+function EmptyState({ onPromptClick }: { onPromptClick: (prompt: string) => void }) {
+  const examples = [
+    '一个女孩在海边跳舞，夕阳背景，浪漫风格',
+    '帮我把这张照片变成 5 秒的短视频',
+    '美食探店 vlog 片头，热气腾腾的火锅特写',
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-8 animate-fade-in">
+      <div className="max-w-md w-full text-center">
+        {/* Logo + Title */}
+        <div className="w-14 h-14 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-5 shadow-[var(--shadow-brand-lg)]">
+          <Sparkles size={24} className="text-white" />
+        </div>
+        <h2 className="text-lg font-semibold text-text-primary mb-1.5">VidClaw - 说人话，出视频</h2>
+        <p className="text-sm text-text-muted mb-8">描述你想要的视频，AI 帮你生成</p>
+
+        {/* Example prompts */}
+        <div className="space-y-2.5">
+          {examples.map((prompt, i) => (
+            <button
+              key={i}
+              onClick={() => onPromptClick(prompt)}
+              className="w-full text-left px-4 py-3 bg-surface-2 hover:bg-surface-3 border border-border-subtle hover:border-border rounded-xl text-sm text-text-secondary hover:text-text-primary transition-all duration-150 group"
+            >
+              <span className="text-text-muted mr-2 text-xs">{i + 1}.</span>
+              {prompt}
+              <span className="float-right opacity-0 group-hover:opacity-100 transition-opacity text-brand text-xs mt-0.5">
+                点击使用 →
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Usage hint */}
+        <p className="text-[11px] text-text-disabled mt-6">
+          💡 登录即梦后，直接输入描述即可生成视频
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Onboarding Overlay (问题6：新手引导) ──
+function OnboardingOverlay({ onDismiss }: { onDismiss: () => void }) {
+  const steps = [
+    { icon: <Globe size={22} />, title: '登录即梦', desc: '打开浏览器，扫码登录即梦账号' },
+    { icon: <Type size={22} />, title: '输入描述', desc: '用自然语言描述你想生成的视频' },
+    { icon: <Video size={22} />, title: '等待出片', desc: 'AI 自动优化并生成视频' },
+  ];
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-overlay-in">
+      <div className="bg-surface-1 border border-border rounded-2xl p-8 max-w-sm w-full mx-4 shadow-[var(--shadow-elevated)] animate-card-pop">
+        <h3 className="text-base font-semibold text-text-primary text-center mb-1">欢迎使用 VidClaw</h3>
+        <p className="text-xs text-text-muted text-center mb-6">3 步开始创作</p>
+
+        <div className="space-y-4 mb-8">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-surface-3 flex items-center justify-center text-brand shrink-0">
+                {step.icon}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">{i + 1}. {step.title}</p>
+                <p className="text-xs text-text-muted">{step.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={onDismiss}
+          className="w-full py-2.5 bg-brand-gradient text-white text-sm font-medium rounded-xl hover:shadow-[var(--shadow-brand)] transition-all hover:-translate-y-0.5 active:translate-y-0"
+        >
+          开始使用
+        </button>
+        <button
+          onClick={onDismiss}
+          className="w-full mt-2 py-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors"
+        >
+          跳过
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Progress Message (问题5：进度消息样式增强) ──
+function ProgressMessage({ msg }: { msg: Message }) {
+  const data = msg.data as any;
+  const progressType = data?.progressType || 'generating';
+  const percent = data?.percent;
+  const error = data?.error;
+
+  if (progressType === 'uploading') {
+    return (
+      <div className="flex justify-start animate-fade-in">
+        <div className="bg-surface-2 border border-border-subtle rounded-xl px-4 py-3 max-w-xs">
+          <div className="flex items-center gap-2.5">
+            <ArrowUp size={16} className="text-brand animate-upload-bounce" />
+            <span className="text-xs text-text-secondary">{msg.content || '正在上传素材...'}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (progressType === 'completed') {
+    return (
+      <div className="flex justify-start animate-fade-in">
+        <div className="bg-success/10 border border-success/20 rounded-xl px-4 py-3 max-w-xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle size={16} className="text-success animate-check-pop" />
+            <span className="text-xs text-success font-medium">{msg.content || '生成完成'}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (progressType === 'failed') {
+    return (
+      <div className="flex justify-start animate-fade-in">
+        <div className="bg-error/10 border border-error/20 rounded-xl px-4 py-3 max-w-xs animate-shake">
+          <div className="flex items-center gap-2.5 mb-2">
+            <AlertTriangle size={16} className="text-error" />
+            <span className="text-xs text-error font-medium">{msg.content || '生成失败'}</span>
+          </div>
+          {error && <p className="text-[11px] text-error/70 mb-2">{error}</p>}
+          <button
+            onClick={data?.onRetry}
+            className="text-[11px] text-error hover:text-error/80 font-medium underline underline-offset-2"
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: generating
+  return (
+    <div className="flex justify-start animate-fade-in">
+      <div className="bg-surface-2 border border-border-subtle rounded-xl px-4 py-3 max-w-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-text-secondary">{msg.content || '正在生成...'}</span>
+          {percent !== undefined && (
+            <span className="text-[11px] text-brand font-mono font-medium">{percent}%</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Parameter Panel (Card-style layout) ──
 function ParameterPanel({
   model, setModel, duration, setDuration, aspectRatio, setAspectRatio, visible
@@ -148,7 +306,7 @@ function ParameterPanel({
   const ratios = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 
   return (
-    <div className="px-6 py-3 border-t border-border-subtle bg-surface-1 flex-shrink-0 animate-slide-in">
+    <div className={`px-6 border-t border-border-subtle bg-surface-1 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${visible ? 'py-3 max-h-[200px] opacity-100' : 'py-0 max-h-0 opacity-0'}`}>
       <div className="grid grid-cols-3 gap-4">
         <ParamSection label="模型">
           {models.map((m) => (
@@ -426,6 +584,7 @@ export function ChatPanel() {
   const [selectedRatio, setSelectedRatio] = useState('9:16');
   const [showParams, setShowParams] = useState(false);
   const [useStructuredFlow] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('vidclaw_onboarded'));
 
   // Auto-scroll
   useEffect(() => {
@@ -909,11 +1068,23 @@ export function ChatPanel() {
     }
   }
 
+  function handleDismissOnboarding() {
+    localStorage.setItem('vidclaw_onboarded', 'true');
+    setShowOnboarding(false);
+  }
+
+  function handleEmptyPromptClick(prompt: string) {
+    setInput(prompt);
+    textareaRef.current?.focus();
+  }
+
   const canInput = guidedStep === 'logged-in-ready' || guidedStep === 'task-done' || guidedStep === 'batch-collecting';
   const showInputArea = ['logged-in-ready', 'task-drafting', 'task-confirming', 'task-executing', 'task-done', 'batch-collecting'].includes(guidedStep);
 
   return (
-    <div className="flex flex-col h-full bg-surface-0">
+    <div className="flex flex-col h-full bg-surface-0 relative">
+      {/* Onboarding Overlay (问题6) */}
+      {showOnboarding && <OnboardingOverlay onDismiss={handleDismissOnboarding} />}
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-border-subtle flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -931,33 +1102,39 @@ export function ChatPanel() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {messages.map((msg, i) => (
-          <div key={msg.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 30, 150)}ms` }}>
-            <MessageBubble
-              msg={msg}
-              onDownload={msg.type === 'result' && msg.data ? () => handleDownload(msg.data) : undefined}
-              onGuideClick={msg.type === 'guide-button' && guidedStep === 'welcome' ? handleReady : undefined}
-              onConfirm={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleConfirmTask : undefined}
-              onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleEditTask : undefined}
-              task={msg.type === 'ai-rewrite' ? msg.data : undefined}
-              onDurationChange={setSelectedDuration}
-              onRatioChange={setSelectedRatio}
-            />
-          </div>
-        ))}
-
-        {isSubmitting && (
-          <div className="flex justify-start animate-fade-in">
-            <div className="bg-surface-2 border border-border-subtle rounded-xl px-4 py-3 max-w-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-text-muted">{statusText || '处理中...'}</span>
+        {messages.length === 0 && !isSubmitting ? (
+          <EmptyState onPromptClick={handleEmptyPromptClick} />
+        ) : (
+          <>
+            {messages.map((msg, i) => (
+              <div key={msg.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 30, 150)}ms` }}>
+                <MessageBubble
+                  msg={msg}
+                  onDownload={msg.type === 'result' && msg.data ? () => handleDownload(msg.data) : undefined}
+                  onGuideClick={msg.type === 'guide-button' && guidedStep === 'welcome' ? handleReady : undefined}
+                  onConfirm={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleConfirmTask : undefined}
+                  onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleEditTask : undefined}
+                  task={msg.type === 'ai-rewrite' ? msg.data : undefined}
+                  onDurationChange={setSelectedDuration}
+                  onRatioChange={setSelectedRatio}
+                />
               </div>
-            </div>
-          </div>
-        )}
+            ))}
 
-        <div ref={messagesEndRef} />
+            {isSubmitting && (
+              <div className="flex justify-start animate-fade-in">
+                <div className="bg-surface-2 border border-border-subtle rounded-xl px-4 py-3 max-w-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-text-muted">{statusText || '处理中...'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </>
+        )}
       </div>
 
       {/* Parameter Panel */}
@@ -1000,12 +1177,13 @@ export function ChatPanel() {
             <button
               onClick={() => setShowParams(!showParams)}
               disabled={!canInput}
-              className={`p-2.5 rounded-lg transition-all duration-150 flex-shrink-0 disabled:opacity-25 disabled:cursor-not-allowed ${
+              className={`p-2.5 rounded-lg transition-all duration-150 flex-shrink-0 disabled:opacity-25 disabled:cursor-not-allowed flex items-center gap-0.5 ${
                 showParams ? 'bg-brand/15 text-brand' : 'hover:bg-surface-2 text-text-muted hover:text-text-primary'
               }`}
               title="参数设置"
             >
               <Settings2 size={18} />
+              {showParams ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
             </button>
 
             <div className="flex-1 relative">
@@ -1077,6 +1255,11 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, task,
         </p>
       </div>
     );
+  }
+
+  // Progress messages (问题5)
+  if (msg.type === 'progress') {
+    return <ProgressMessage msg={msg} />;
   }
 
   // Guide button message

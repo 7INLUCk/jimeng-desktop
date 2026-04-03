@@ -5,7 +5,7 @@ import { ResultsPanel } from './components/ResultsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Sidebar } from './components/Sidebar';
 import { BatchTaskPanel, BatchStatusMini } from './components/BatchTaskPanel';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, PawPrint } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -127,8 +127,8 @@ export default function App() {
     return (
       <div className="flex items-center justify-center h-screen bg-surface-0 text-white">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center text-sm font-bold mx-auto mb-5 shadow-[var(--shadow-brand-lg)] animate-glow">
-            即
+          <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center mx-auto mb-5 shadow-[var(--shadow-brand-lg)] animate-glow">
+            <PawPrint size={20} strokeWidth={2.2} className="text-white" />
           </div>
           <div className="relative w-6 h-6 mx-auto mb-3">
             <div className="absolute inset-0 rounded-full border-2 border-brand/30" />
