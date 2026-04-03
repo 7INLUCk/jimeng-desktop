@@ -5,7 +5,7 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'result' | 'error' | 'ai-rewrite' | 'download' | 'guide-button' | 'mode-select' | 'batch-confirm';
+  type?: 'text' | 'result' | 'error' | 'ai-rewrite' | 'download' | 'guide-button' | 'mode-select' | 'batch-confirm' | 'progress';
   data?: any;
 }
 
@@ -170,6 +170,7 @@ interface AppState {
   setIsLoggedIn: (loggedIn: boolean | null) => void;
   setGuidedStep: (step: GuidedStep) => void;
   addMessage: (msg: Message) => void;
+  updateMessage: (id: string, updates: Partial<Message>) => void;
   setSubmitting: (submitting: boolean) => void;
   setStatusText: (text: string) => void;
   setResults: (results: ResultItem[]) => void;
@@ -224,6 +225,10 @@ export const useStore = create<AppState>((set) => ({
   setIsLoggedIn: (isLoggedIn) => set({ isLoggedIn }),
   setGuidedStep: (guidedStep) => set({ guidedStep }),
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  updateMessage: (id, updates) =>
+    set((s) => ({
+      messages: s.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+    })),
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setStatusText: (statusText) => set({ statusText }),
   setResults: (results) => set({ results }),

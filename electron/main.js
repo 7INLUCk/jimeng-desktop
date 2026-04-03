@@ -85,8 +85,8 @@ function loadSettings() {
   return {
     downloadDir: path.join(app.getPath('downloads'), '即梦'),
     autoDownload: false,
-    apiKey: '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', // OpenRouter（新 key）
-    model: 'xiaomi/mimo-v2-pro',
+    apiKey: 'sk-4b2f09aa14204571b1b33a5d97839a63', // DeepSeek
+    model: 'deepseek-chat',
   };
 }
 
@@ -224,8 +224,8 @@ function sendToRenderer(channel, data) {
 // ===== 确保 AI 服务已初始化 =====
 function ensureAIService() {
   if (!aiService) {
-    const apiKey = settings.apiKey || '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';
-    const model = settings.model || 'xiaomi/mimo-v2-pro';
+    const apiKey = settings.apiKey || 'sk-4b2f09aa14204571b1b33a5d97839a63';
+    const model = settings.model || 'deepseek-chat';
     aiService = new AIService(apiKey, model);
   }
   return aiService;
@@ -342,12 +342,13 @@ function registerIpcHandlers() {
   });
 
   // ---- 批量任务生成 ----
-  ipcMain.handle('task:prepare-batch', async (_event, input) => {
+  ipcMain.handle('task:prepare-batch', async (_event, input, materials) => {
     console.log('[批量准备] 输入:', input?.slice?.(0, 100));
+    console.log('[批量准备] 素材:', materials ? `图片${materials.images?.length || 0}/视频${materials.videos?.length || 0}` : '无');
 
     try {
       const ai = ensureAIService();
-      const result = await ai.generateBatchTasks(input);
+      const result = await ai.generateBatchTasks(input, materials);
       console.log('[批量准备] AI 生成结果:', JSON.stringify(result).slice(0, 500));
       return { success: true, ...result };
     } catch (err) {

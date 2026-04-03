@@ -1988,63 +1988,121 @@ class AutomationService {
    * @param {string} params.aspectRatio - 画面比例
    */
   async runStructuredTask({ prompt, materials, metaList, model, duration, aspectRatio }) {
-    console.log('[自动化] 开始结构化任务:', {
+    console.log('[自动化] 开始结构化任务（API模式）:', {
       prompt: (prompt || '').slice(0, 60),
       materialCount: (materials || []).length,
       model, duration, aspectRatio,
     });
 
     // Step 1: 导航到生成页面
+    this._emit('progress', { stage: 'navigating', message: '🌐 正在打开即梦生成页...' });
     await this.navigateToGenerate();
     await randomDelay(1000, 2000);
 
     // Step 2: 切换到 Seedance 全能参考模式
+    this._emit('progress', { stage: 'mode-switch', message: '🔄 正在切换模式...' });
     await this.switchToSeedanceMode();
     await randomDelay(1000, 2000);
 
     // Step 3: 选择模型（如果指定）
     if (model) {
+      this._emit('progress', { stage: 'select-model', message: `🎯 选择模型: ${model}` });
       await this.selectModel(model);
       await randomDelay(500, 1000);
     }
 
-    // Step 4: 上传素材（改用 DOM 方式，绕过 CORS 问题）
-    // 根因：API 方式直接调用 byteplus 被 CORS 拦截
-    // 修复：使用 DOM file input + setInputFiles，让即梦前端自己上传
-    let imageCount = 0, videoCount = 0;
+    // Step 4: API 上传素材（替代 DOM 上传）
+    const uploadResults = [];
     if (materials && materials.length > 0) {
-      imageCount = materials.filter(m => m.type === 'image').length;
-      videoCount = materials.filter(m => m.type === 'video').length;
-      const filePaths = materials.map(m => m.path);
-      console.log('[自动化] 使用 DOM 方式上传素材:', filePaths.length, '个文件');
-      const uploadResult = await this.uploadImages(filePaths);
-      console.log('[自动化] DOM 上传结果:', uploadResult);
-      await randomDelay(2000, 3000); // 等前端处理完
+      this._emit('progress', { stage: 'uploading', message: `📤 正在上传素材... (0/${materials.length})` });
+      for (let i = 0; i < materials.length; i++) {
+        const mat = materials[i];
+        let result;
+        try {
+          if (mat.type === 'image') {
+            result = await this.uploadImage(mat.path);
+          } else if (mat.type === 'video') {
+            result = await this.uploadVideo(mat.path);
+          } else {
+            console.warn('[自动化] 未知素材类型:', mat.type);
+            continue;
+          }
+          if (result && result.success) {
+            uploadResults.push({ ...mat, ...result });
+            this._emit('progress', {
+              stage: 'uploading',
+              message: `📤 已上传 ${i + 1}/${materials.length} (${mat.type === 'image' ? '🖼️' : '🎬'} ${mat.path.split('/').pop()})`,
+            });
+          } else {
+            console.error('[自动化] 上传失败:', mat.path, result?.error);
+            this._emit('progress', {
+              stage: 'upload-error',
+              message: `⚠️ 上传失败: ${mat.path.split('/').pop()} - ${result?.error || '未知错误'}`,
+            });
+          }
+        } catch (e) {
+          console.error('[自动化] 上传异常:', mat.path, e.message);
+          this._emit('progress', {
+            stage: 'upload-error',
+            message: `⚠️ 上传异常: ${mat.path.split('/').pop()} - ${e.message}`,
+          });
+        }
+      }
     }
 
-    // Step 5: 填写提示词（带 @ 引用）
-    if (prompt) {
-      if (imageCount > 0 || videoCount > 0) {
-        // 有素材时用带 @ 引用的提示词
-        await this.setPromptWithReferences(prompt, imageCount, videoCount);
-      } else {
-        // 无素材时用普通提示词
-        await this.setPrompt(prompt);
-      }
+    // Step 5: 构造 prompt（用户输入的 prompt 已经包含「图片1」「视频1」引用，直接使用）
+    // 无素材时 fallback 到 DOM 方式填入提示词
+    if (prompt && uploadResults.length === 0 && (!materials || materials.length === 0)) {
+      await this.setPrompt(prompt);
       await randomDelay(500, 1000);
     }
 
-    // Step 6: 提交任务（按 Enter）
-    const submitResult = await this.submitTask();
-    console.log('[自动化] 任务已提交:', submitResult);
+    // Step 6: 构造 draft_content 并 API 提交
+    this._emit('progress', { stage: 'submitting', message: '🤖 正在提交到即梦...' });
+    const materialsForDraft = uploadResults.map((r) => ({
+      type: r.type,
+      storeUri: r.storeUri,
+      vid: r.vid,
+    }));
+    const draftContent = this.buildDraftContent({
+      materials: materialsForDraft,
+      metaList: metaList || null,
+      options: { prompt, model, duration, aspectRatio },
+    });
+    const submitResult = await this.submitGeneration({ draftContent, options: { model } });
+    console.log('[自动化] 任务已提交, taskId:', submitResult.taskId);
+    this._emit('progress', { stage: 'submitted', message: `✅ 提交成功，taskId: ${submitResult.taskId}` });
 
-    // Step 7: 结果通过 API 拦截自动获取（startApiInterception 已启动）
-    // 无需手动轮询，生成完成后会自动 emit 'result' 事件
+    // Step 7: 主动轮询任务状态
+    this._emit('progress', { stage: 'generating', message: '⏳ 生成中，预计需要1-3分钟...' });
+    const pollResult = await this.pollTaskStatus(submitResult.taskId, {
+      timeout: 600000,
+      interval: 5000,
+    });
+
+    if (pollResult.success && pollResult.status === 'completed') {
+      this._emit('progress', { stage: 'completed', message: '🎬 生成完成！' });
+      // 解析结果并 emit
+      if (pollResult.data) {
+        const parsed = parseItem(pollResult.data);
+        if (parsed) {
+          this._emit('result', parsed);
+          this.results.unshift(parsed);
+        }
+      }
+    } else if (pollResult.status === 'timeout') {
+      this._emit('progress', { stage: 'timeout', message: '⏰ 生成超时，请稍后查看结果' });
+    } else {
+      this._emit('progress', { stage: 'error', message: `❌ 生成失败: ${pollResult.error || '未知错误'}` });
+    }
 
     return {
-      success: true,
-      message: '结构化任务已提交（DOM 上传 + Enter 提交）',
-      submitResult,
+      success: pollResult.success,
+      taskId: submitResult.taskId,
+      message: pollResult.success
+        ? '结构化任务已完成（API 上传 + API 提交 + 轮询）'
+        : `结构化任务${pollResult.status === 'timeout' ? '超时' : '失败'}: ${pollResult.error || ''}`,
+      result: pollResult.data,
     };
   }
 

@@ -41,6 +41,7 @@ function BatchConfirmCard({
   tasks,
   batchName,
   description,
+  materials,
   onConfirm,
   onEdit,
   onTaskEdit,
@@ -48,10 +49,13 @@ function BatchConfirmCard({
   tasks: BatchTaskItem[];
   batchName: string;
   description: string;
+  materials?: { images: any[]; videos: any[]; audios: any[] } | null;
   onConfirm: () => void;
   onEdit: () => void;
   onTaskEdit: (index: number) => void;
 }) {
+  const hasMaterials = materials && (materials.images?.length > 0 || materials.videos?.length > 0);
+  
   return (
     <div className="bg-surface-2 border border-border rounded-xl overflow-hidden max-w-[90%] animate-fade-in-up">
       <div className="flex">
@@ -62,6 +66,25 @@ function BatchConfirmCard({
           </p>
           <p className="text-sm text-text-primary font-medium mb-1">{batchName}</p>
           {description && <p className="text-xs text-text-secondary mb-3">{description}</p>}
+          
+          {/* 素材显示 */}
+          {hasMaterials && (
+            <div className="mb-3 p-2 bg-surface-3 rounded-lg">
+              <p className="text-[10px] text-text-muted mb-1">📎 已上传素材</p>
+              <div className="flex flex-wrap gap-1">
+                {materials.images?.map((img, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded">
+                    🖼️ {img.name}
+                  </span>
+                ))}
+                {materials.videos?.map((vid, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                    🎬 {vid.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           
           <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">
             共 {tasks.length} 个任务
@@ -89,14 +112,10 @@ function BatchConfirmCard({
                   </button>
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-[10px] text-text-muted">
-                  <span>{task.duration}s</span>
-                  <span>·</span>
-                  <span>{task.aspectRatio}</span>
+                  <span className="px-1.5 py-0.5 bg-surface-2 rounded">⏱️ {task.duration}s</span>
+                  <span className="px-1.5 py-0.5 bg-surface-2 rounded">📐 {task.aspectRatio}</span>
                   {task.materials?.length > 0 && (
-                    <>
-                      <span>·</span>
-                      <span>{task.materials.length} 素材</span>
-                    </>
+                    <span className="px-1.5 py-0.5 bg-surface-2 rounded">📎 {task.materials.length} 素材</span>
                   )}
                 </div>
               </div>
@@ -573,10 +592,38 @@ export function ChatPanel() {
 
     // ===== 批量任务模式 =====
     if (guidedStep === 'batch-collecting') {
+      // 构建素材信息（用于批量任务规划）
+      const materials = {
+        images: [] as Array<{ type: string; name: string; path: string }>,
+        videos: [] as Array<{ type: string; name: string; path: string }>,
+        audios: [] as Array<{ type: string; name: string; path: string }>,
+      };
+
+      // 按类型分类并命名文件
+      let imageIdx = 0, videoIdx = 0, audioIdx = 0;
+      selectedFiles.forEach(f => {
+        const fileName = f.split('/').pop() || f;
+        if (/\.(mp4|mov|avi|webm)$/i.test(f)) {
+          videoIdx++;
+          materials.videos.push({ type: 'video', name: `视频${videoIdx}`, path: f });
+        } else if (/\.(mp3|wav|aac|flac)$/i.test(f)) {
+          audioIdx++;
+          materials.audios.push({ type: 'audio', name: `音频${audioIdx}`, path: f });
+        } else {
+          imageIdx++;
+          materials.images.push({ type: 'image', name: `图片${imageIdx}`, path: f });
+        }
+      });
+
+      const hasFiles = selectedFiles.length > 0;
+      const fileListDesc = hasFiles 
+        ? [...materials.images, ...materials.videos, ...materials.audios].map(m => m.name).join('、')
+        : '';
+
       const userMsg: Message = {
         id: Date.now().toString(),
         role: 'user',
-        content: input.trim(),
+        content: input.trim() + (hasFiles ? `\n📎 已上传素材：${fileListDesc}` : ''),
         timestamp: new Date(),
       };
       addMessage(userMsg);
@@ -585,7 +632,8 @@ export function ChatPanel() {
       setStatusText('🧠 AI 正在规划批量任务...');
 
       try {
-        const result = await window.api.prepareBatchTasks(userMsg.content);
+        // 传递素材信息给 AI
+        const result = await window.api.prepareBatchTasks(userMsg.content, hasFiles ? materials : null);
         console.log('[批量任务] AI 返回:', result);
 
         if (!result.success || !result.tasks || result.tasks.length === 0) {
@@ -609,6 +657,7 @@ export function ChatPanel() {
               batchName: result.batchName || '批量任务',
               description: result.description || '',
               tasks: result.tasks,
+              materials: hasFiles ? materials : null,
             },
           });
         }
@@ -830,7 +879,29 @@ export function ChatPanel() {
   // Listen for progress events
   useEffect(() => {
     const removeProgress = window.api.onProgress((data) => {
-      if (data.event === 'result') {
+      if (data.event === 'progress') {
+        // 结构化任务进度消息 — 更新同一条消息
+        const stage = data.data?.stage;
+        const message = data.data?.message;
+        const PROGRESS_MSG_ID = '_structured_progress';
+        const store = useStore.getState();
+        const exists = store.messages.some(m => m.id === PROGRESS_MSG_ID);
+        if (exists) {
+          store.updateMessage(PROGRESS_MSG_ID, {
+            content: message,
+            timestamp: new Date(),
+            type: stage === 'completed' ? 'result' : stage === 'error' || stage === 'timeout' ? 'error' : 'progress',
+          });
+        } else {
+          store.addMessage({
+            id: PROGRESS_MSG_ID,
+            role: 'system',
+            content: message,
+            timestamp: new Date(),
+            type: 'progress',
+          });
+        }
+      } else if (data.event === 'result') {
         const item = data.data;
         if (item?.url) {
           useStore.getState().addResult(item);
@@ -1133,6 +1204,7 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, task,
           tasks={data.tasks}
           batchName={data.batchName || '批量任务'}
           description={data.description || ''}
+          materials={data.materials || null}
           onConfirm={onConfirm || (() => {})}
           onEdit={onEdit || (() => {})}
           onTaskEdit={(index) => {

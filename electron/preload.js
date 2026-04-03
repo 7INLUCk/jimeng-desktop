@@ -14,8 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Seedance 模式任务准备（带素材 @引用）
   prepareTaskForSeedance: (input, materials) => ipcRenderer.invoke('task:prepare-seedance', { input, materials }),
-      // 批量任务准备
-      prepareBatchTasks: (input) => ipcRenderer.invoke('task:prepare-batch', input),
+      // 批量任务准备（支持素材）
+      prepareBatchTasks: (input, materials) => ipcRenderer.invoke('task:prepare-batch', input, materials),
 
   // 任务管理（兼容旧接口）
   submitTask: (input) => ipcRenderer.invoke('task:submit', input),
