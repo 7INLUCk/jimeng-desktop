@@ -123,10 +123,10 @@ const SEEDANCE_SYSTEM_PROMPT = `你是即梦 Seedance 2.0「全能参考」模�
 
 class AIService {
   constructor(apiKey, model) {
-    // 使用 OpenRouter MiMo V2 Pro（新 key，2026-04-01 更新）
-    this.apiKey = apiKey || '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';
-    this.model = model || 'xiaomi/mimo-v2-pro';
-    this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    // 使用 DeepSeek API
+    this.apiKey = apiKey || 'sk-4b2f09aa14204571b1b33a5d97839a63';
+    this.model = model || 'deepseek-chat';
+    this.baseUrl = 'https://api.deepseek.com/v1/chat/completions';
   }
 
   async rewritePrompt(userInput) {
@@ -149,8 +149,6 @@ class AIService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
-          'HTTP-Referer': 'https://vidclaw.local',
-          'X-Title': 'Jimeng Desktop Assistant',
         },
       };
 
@@ -233,8 +231,6 @@ class AIService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
-          'HTTP-Referer': 'https://vidclaw.local',
-          'X-Title': 'Jimeng Desktop Assistant',
         },
       };
 
@@ -363,8 +359,6 @@ class AIService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
-          'HTTP-Referer': 'https://vidclaw.local',
-          'X-Title': 'Jimeng Desktop Assistant',
         },
       };
 
