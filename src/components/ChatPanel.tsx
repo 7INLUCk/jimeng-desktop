@@ -671,6 +671,22 @@ export function ChatPanel() {
     };
   }, [loginPollTimer]);
 
+  // 确保 logged-in-ready 时始终显示模式选择卡片
+  useEffect(() => {
+    if (guidedStep === 'logged-in-ready') {
+      const hasModeSelect = messages.some(m => m.type === 'mode-select');
+      if (!hasModeSelect) {
+        addMessage({
+          id: Date.now().toString() + '_auto_mode',
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+          type: 'mode-select',
+        });
+      }
+    }
+  }, [guidedStep]);
+
   // ── Guide flow handlers ──
   async function handleReady() {
     addMessage({
