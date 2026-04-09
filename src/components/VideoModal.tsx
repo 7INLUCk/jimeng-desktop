@@ -10,7 +10,8 @@ export function VideoModal({ url, onClose }: VideoModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-overlay-in"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-overlay-in"
+      style={{ background: 'oklch(0.05 0.01 250 / 0.8)' }}
       onClick={onClose}
     >
       <div
@@ -20,7 +21,7 @@ export function VideoModal({ url, onClose }: VideoModalProps) {
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute -top-10 right-0 p-2 text-white/60 hover:text-white transition-colors"
+          className="absolute -top-10 right-0 p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
         >
           <X size={20} />
         </button>
@@ -30,8 +31,8 @@ export function VideoModal({ url, onClose }: VideoModalProps) {
           src={url}
           controls
           autoPlay
-          className="w-full rounded-xl shadow-[var(--shadow-elevated)]"
-          style={{ maxHeight: '80vh' }}
+          className="w-full rounded-md"
+          style={{ maxHeight: '80vh', boxShadow: 'var(--shadow-lg)' }}
         >
           您的浏览器不支持视频播放
         </video>

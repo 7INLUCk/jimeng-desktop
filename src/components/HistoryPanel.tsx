@@ -45,9 +45,9 @@ function HistoryCard({ item, onPreview }: { item: HistoryItem; onPreview: (url: 
   }, [item]);
 
   return (
-    <div className="group bg-surface-2 border border-border-subtle rounded-lg overflow-hidden hover:border-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]">
+    <div className="group bg-surface-1 border border-border-subtle rounded-md overflow-hidden hover:border-border transition-colors">
       {/* Thumbnail */}
-      <div className="aspect-video bg-surface-3 relative overflow-hidden">
+      <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {item.thumbnailUrl ? (
           <img
             src={item.thumbnailUrl}
@@ -102,7 +102,7 @@ function HistoryCard({ item, onPreview }: { item: HistoryItem; onPreview: (url: 
       </div>
 
       {/* Info */}
-      <div className="p-2">
+      <div className="p-2.5">
         <p className="text-[11px] text-text-primary line-clamp-2 leading-relaxed" title={item.prompt}>
           {item.prompt || '无提示词'}
         </p>
@@ -161,7 +161,7 @@ export function HistoryPanel() {
   return (
     <div className="flex flex-col h-full bg-surface-0">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-border-subtle flex-shrink-0">
+      <header className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <Clock size={16} className="text-brand" />
           <h1 className="text-sm font-semibold text-text-primary">作品历史</h1>
@@ -172,7 +172,7 @@ export function HistoryPanel() {
       </header>
 
       {/* Tab Filter */}
-      <div className="px-5 py-2 border-b border-border-subtle flex-shrink-0">
+      <div className="px-4 py-1.5 border-b border-border-subtle flex-shrink-0">
         <div className="flex gap-1">
           {[
             { key: 'all', label: '全部' },
@@ -195,7 +195,7 @@ export function HistoryPanel() {
       </div>
 
       {/* Search bar */}
-      <div className="px-5 py-2.5 border-b border-border-subtle flex-shrink-0">
+      <div className="px-4 py-2 border-b border-border-subtle flex-shrink-0">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -209,14 +209,14 @@ export function HistoryPanel() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {filteredHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-md bg-surface-2 flex items-center justify-center mb-3">
               <Clock size={28} className="text-text-disabled" />
             </div>
-            <p className="text-sm font-medium text-text-secondary mb-1">暂无历史作品</p>
-            <p className="text-xs text-text-muted">生成的视频会自动保存在这里</p>
+            <p className="text-sm font-medium text-text-secondary mb-0.5">暂无历史作品</p>
+            <p className="text-[11px] text-text-muted">生成的视频会自动保存在这里</p>
           </div>
         ) : (
           <div className="space-y-6">

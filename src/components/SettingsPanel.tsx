@@ -55,16 +55,16 @@ export function SettingsPanel() {
   return (
     <div className="flex flex-col h-full bg-surface-0">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border-subtle flex-shrink-0">
+      <header className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle flex-shrink-0">
         <div>
           <h1 className="text-sm font-semibold text-text-primary">设置</h1>
-          <p className="text-xs text-text-muted">配置即梦助手</p>
+          <p className="text-[11px] text-text-muted">配置即梦助手</p>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-lg space-y-7">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="max-w-lg space-y-5">
 
           {/* Download Directory */}
           <section>
@@ -77,11 +77,11 @@ export function SettingsPanel() {
                 type="text"
                 value={settings.downloadDir}
                 onChange={(e) => setSettings({ downloadDir: e.target.value })}
-                className="flex-1 bg-surface-1 border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus-brand transition-all duration-200"
+                className="flex-1 bg-surface-1 border border-border-subtle rounded-md px-3 py-2 text-sm text-text-primary placeholder-text-muted focus-brand transition-colors"
               />
               <button
                 onClick={handleSelectDir}
-                className="px-3 rounded-xl bg-surface-2 text-text-muted hover:text-text-primary text-xs transition-colors border border-border-subtle"
+                className="px-3 rounded-md bg-surface-2 text-text-muted hover:text-text-primary text-xs transition-colors border border-border-subtle"
               >
                 选择
               </button>
@@ -97,27 +97,27 @@ export function SettingsPanel() {
             <button
               onClick={() => setSettings({ autoDownload: !settings.autoDownload })}
               className={`
-                w-11 h-6 rounded-full transition-all duration-200 relative
-                ${settings.autoDownload ? 'bg-brand shadow-[var(--shadow-brand)]' : 'bg-surface-3'}
+                w-10 h-5.5 rounded-full transition-colors relative
+                ${settings.autoDownload ? 'bg-brand' : 'bg-surface-3'}
               `}
             >
               <span
                 className={`
-                  absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200 shadow-sm
-                  ${settings.autoDownload ? 'translate-x-[22px]' : 'translate-x-0.5'}
+                  absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white transition-transform shadow-sm
+                  ${settings.autoDownload ? 'translate-x-[20px]' : 'translate-x-0.5'}
                 `}
               />
             </button>
           </section>
 
-          <hr className="border-border-subtle" />
+          <div className="h-px bg-border-subtle" />
 
           {/* Re-login */}
           <section>
             <label className="text-sm font-medium text-text-primary mb-2.5 block">即梦账号</label>
             <button
               onClick={handleRelogin}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-text-secondary text-sm transition-all duration-150 border border-border-subtle hover:border-border"
+              className="flex items-center gap-2 px-3 py-2 rounded-md bg-surface-2 hover:bg-surface-3 text-text-secondary text-sm transition-colors border border-border-subtle hover:border-border"
             >
               <LogOut size={15} />
               退出登录
@@ -127,7 +127,7 @@ export function SettingsPanel() {
             </p>
           </section>
 
-          <hr className="border-border-subtle" />
+          <div className="h-px bg-border-subtle" />
 
           {/* About */}
           <section>
@@ -138,7 +138,7 @@ export function SettingsPanel() {
             </div>
           </section>
 
-          <hr className="border-border-subtle" />
+          <div className="h-px bg-border-subtle" />
 
           {/* Usage Statistics */}
           <section>
@@ -146,17 +146,17 @@ export function SettingsPanel() {
               <BarChart3 size={14} className="text-brand" />
               用量统计
             </label>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-surface-2 rounded-xl p-3 border border-border-subtle text-center">
-                <p className="text-lg font-semibold text-text-primary font-mono">{usage.totalTasks}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-surface-2 rounded-md p-2.5 border border-border-subtle text-center">
+                <p className="text-base font-semibold text-text-primary font-mono">{usage.totalTasks}</p>
                 <p className="text-[10px] text-text-muted mt-0.5">总任务</p>
               </div>
-              <div className="bg-surface-2 rounded-xl p-3 border border-border-subtle text-center">
-                <p className="text-lg font-semibold font-mono" style={{ color: 'oklch(0.7 0.15 145)' }}>{usage.completedTasks}</p>
+              <div className="bg-surface-2 rounded-md p-2.5 border border-border-subtle text-center">
+                <p className="text-base font-semibold font-mono text-success">{usage.completedTasks}</p>
                 <p className="text-[10px] text-text-muted mt-0.5">已完成</p>
               </div>
-              <div className="bg-surface-2 rounded-xl p-3 border border-border-subtle text-center">
-                <p className="text-lg font-semibold font-mono" style={{ color: 'oklch(0.6 0.2 25)' }}>{usage.failedTasks}</p>
+              <div className="bg-surface-2 rounded-md p-2.5 border border-border-subtle text-center">
+                <p className="text-base font-semibold font-mono text-error">{usage.failedTasks}</p>
                 <p className="text-[10px] text-text-muted mt-0.5">失败</p>
               </div>
             </div>
@@ -174,12 +174,12 @@ export function SettingsPanel() {
             onClick={handleSave}
             disabled={saving}
             className={`
-              w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200
+              w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors
               ${saved
                 ? 'bg-success text-white'
-                : 'bg-brand-gradient text-white hover:shadow-[var(--shadow-brand)] hover:-translate-y-0.5'
+                : 'bg-brand text-white hover:bg-brand-dark'
               }
-              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none
+              disabled:opacity-50 disabled:cursor-not-allowed
             `}
           >
             {saving ? (

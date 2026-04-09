@@ -2,17 +2,18 @@ import { Play, Pause, Trash2, Edit3, Download, FolderOpen, Clock, CheckCircle, X
 import { useStore, type BatchTaskItem, type QueueTask } from '../store';
 
 // ── Task Status Badge ──
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, { bg: string; text: string; icon?: React.ReactNode }> = {
-    pending: { bg: 'bg-surface-3', text: 'text-text-secondary', icon: <Clock size={12} /> },
-    submitted: { bg: 'bg-blue-500/20', text: 'text-blue-400', icon: <Loader2 size={12} className="animate-spin" /> },
-    generating: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', icon: <Loader2 size={12} className="animate-spin" /> },
-    completed: { bg: 'bg-green-500/20', text: 'text-green-400', icon: <CheckCircle size={12} /> },
-    downloaded: { bg: 'bg-brand/20', text: 'text-brand', icon: <Download size={12} /> },
-    failed: { bg: 'bg-red-500/20', text: 'text-red-400', icon: <XCircle size={12} /> },
-  };
+const statusStyles: Record<string, { bg: string; text: string }> = {
+  pending: { bg: 'var(--color-surface-3)', text: 'var(--color-text-secondary)' },
+  submitted: { bg: 'oklch(0.65 0.25 270 / 0.2)', text: 'oklch(0.65 0.25 270)' },
+  generating: { bg: 'oklch(0.75 0.16 75 / 0.2)', text: 'oklch(0.75 0.16 75)' },
+  completed: { bg: 'oklch(0.7 0.15 145 / 0.2)', text: 'oklch(0.7 0.15 145)' },
+  downloaded: { bg: 'var(--color-brand-subtle)', text: 'var(--color-brand)' },
+  failed: { bg: 'oklch(0.6 0.2 25 / 0.2)', text: 'oklch(0.6 0.2 25)' },
+};
 
-  const style = styles[status] || styles.pending;
+function StatusBadge({ status }: { status: string }) {
+  const style = statusStyles[status] || statusStyles.pending;
+
   const statusText: Record<string, string> = {
     pending: '等待中',
     submitted: '已提交',
@@ -20,11 +21,31 @@ function StatusBadge({ status }: { status: string }) {
     completed: '已完成',
     downloaded: '已下载',
     failed: '失败',
-  };
+  }; 
+
+  const IconComponent = {
+    pending: Clock,
+    submitted: Loader2,
+    generating: Loader2,
+    completed: CheckCircle,
+    downloaded: Download,
+    failed: XCircle,
+  }[status] || Clock;
+
+  const iconClass = status === 'submitted' || status === 'generating' ? 'animate-spin' : '';
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${style.bg} ${style.text}`}>
-      {style.icon}
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5"
+      style={{
+        background: style.bg,
+        color: style.text,
+        borderRadius: 'var(--radius-lg)',
+        fontSize: '10px',
+        fontWeight: 500,
+      }}
+    >
+      <IconComponent size={12} className={iconClass} />
       {statusText[status] || status}
     </span>
   );
@@ -48,22 +69,54 @@ function TaskItemCard({
   const isDownloaded = task.status === 'downloaded';
 
   return (
-    <div className="bg-surface-2 border border-border rounded-lg p-3 hover:border-border-hover transition-colors">
+    <div
+      className="transition-colors"
+      style={{
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '12px',
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
-        {/* 左侧：序号 + 状态 */}
+        {/* 左侧:序号 + 状态 */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="w-6 h-6 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center">
+          <span
+            className="flex items-center justify-center"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: 'var(--radius-lg)',
+              background: 'var(--color-brand-subtle)',
+              color: 'var(--color-brand)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
             {index}
           </span>
           <StatusBadge status={task.status} />
         </div>
 
-        {/* 右侧：操作按钮 */}
+        {/* 右侧:操作按钮 */}
         <div className="flex items-center gap-1">
           {isEditable && onEdit && (
             <button
               onClick={onEdit}
-              className="p-1.5 rounded-md hover:bg-surface-3 text-text-muted hover:text-text-primary transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-muted)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--color-surface-3)';
+                e.currentTarget.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+              }}
               title="编辑任务"
             >
               <Edit3 size={14} />
@@ -72,7 +125,20 @@ function TaskItemCard({
           {isEditable && onDelete && (
             <button
               onClick={onDelete}
-              className="p-1.5 rounded-md hover:bg-red-500/20 text-text-muted hover:text-red-400 transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-muted)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.2)';
+                e.currentTarget.style.color = 'oklch(0.6 0.2 25)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+              }}
               title="删除任务"
             >
               <Trash2 size={14} />
@@ -81,7 +147,20 @@ function TaskItemCard({
           {isDownloaded && onOpenFolder && (
             <button
               onClick={onOpenFolder}
-              className="p-1.5 rounded-md hover:bg-surface-3 text-text-muted hover:text-brand transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-muted)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--color-surface-3)';
+                e.currentTarget.style.color = 'var(--color-brand)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+              }}
               title="打开文件位置"
             >
               <FolderOpen size={14} />
@@ -91,15 +170,33 @@ function TaskItemCard({
       </div>
 
       {/* 提示词 */}
-      <p className="text-xs text-text-primary mt-2 line-clamp-2">{task.prompt}</p>
+      <p
+        className="mt-2 line-clamp-2"
+        style={{
+          fontSize: '12px',
+          color: 'var(--color-text-primary)',
+        }}
+      >{task.prompt}</p>
 
       {/* 理由/测试目的 */}
       {task.reason && (
-        <p className="text-[10px] text-text-muted mt-1">💡 {task.reason}</p>
+        <p
+          className="mt-1"
+          style={{
+            fontSize: '10px',
+            color: 'var(--color-text-muted)',
+          }}
+        >💡 {task.reason}</p>
       )}
 
       {/* 参数 */}
-      <div className="flex items-center gap-2 mt-2 text-[10px] text-text-muted">
+      <div
+        className="flex items-center gap-2 mt-2"
+        style={{
+          fontSize: '10px',
+          color: 'var(--color-text-muted)',
+        }}
+      >
         <span>{task.duration}s</span>
         <span>·</span>
         <span>{task.aspectRatio}</span>
@@ -113,12 +210,25 @@ function TaskItemCard({
 
       {/* 错误信息 */}
       {task.error && (
-        <p className="text-[10px] text-red-400 mt-1">❌ {task.error}</p>
+        <p
+          className="mt-1"
+          style={{
+            fontSize: '10px',
+            color: 'oklch(0.6 0.2 25)',
+          }}
+        >❌ {task.error}</p>
       )}
 
       {/* 下载路径 */}
       {task.outputFile && (
-        <p className="text-[10px] text-brand mt-1 truncate" title={task.outputFile}>
+        <p
+          className="mt-1 truncate"
+          style={{
+            fontSize: '10px',
+            color: 'var(--color-brand)',
+          }}
+          title={task.outputFile}
+        >
           📁 {task.outputFile.split('/').pop()}
         </p>
       )}
@@ -141,28 +251,67 @@ export function BatchTaskPanel() {
   const failedTasks = batchTasks.filter(t => t.status === 'failed');
 
   return (
-    <div className="h-full flex flex-col bg-surface-1 border-l border-border">
+    <div
+      className="h-full flex flex-col"
+      style={{
+        background: 'var(--color-surface)',
+        borderLeft: '1px solid var(--color-border)',
+      }}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-border shrink-0">
+      <div
+        className="p-4 shrink-0"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <span className="text-lg">📋</span>
+            <h2
+              className="flex items-center gap-2"
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              <span style={{ fontSize: '18px' }}>📋</span>
               {batchInfo?.name || '批量任务'}
             </h2>
             {batchInfo?.description && (
-              <p className="text-xs text-text-muted mt-0.5">{batchInfo.description}</p>
+              <p
+                className="mt-0.5"
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--color-text-muted)',
+                }}
+              >{batchInfo.description}</p>
             )}
           </div>
           <div className="text-right">
-            <p className="text-xs text-text-secondary">
+            <p
+              style={{
+                fontSize: '12px',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
               {batchInfo?.completedTasks || 0} / {batchInfo?.totalTasks || batchTasks.length}
             </p>
-            <div className="w-24 h-1.5 bg-surface-3 rounded-full mt-1 overflow-hidden">
+            <div
+              className="mt-1 overflow-hidden"
+              style={{
+                width: '96px',
+                height: '6px',
+                background: 'var(--color-surface-3)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
               <div
-                className="h-full bg-brand-gradient transition-all duration-300"
+                className="h-full transition-all duration-300"
                 style={{
                   width: `${((batchInfo?.completedTasks || 0) / (batchInfo?.totalTasks || 1)) * 100}%`,
+                  background: 'var(--color-brand)',
+                  borderRadius: 'var(--radius-lg)',
                 }}
               />
             </div>
@@ -175,8 +324,16 @@ export function BatchTaskPanel() {
         {/* Running */}
         {runningTasks.length > 0 && (
           <section>
-            <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Loader2 size={10} className="animate-spin text-yellow-400" />
+            <h3
+              className="mb-2 flex items-center gap-1"
+              style={{
+                fontSize: '10px',
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <Loader2 size={10} className="animate-spin" style={{ color: 'oklch(0.75 0.16 75)' }} />
               正在执行 ({runningTasks.length})
             </h3>
             <div className="space-y-2">
@@ -194,7 +351,15 @@ export function BatchTaskPanel() {
         {/* Pending */}
         {pendingTasks.length > 0 && (
           <section>
-            <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+            <h3
+              className="mb-2 flex items-center gap-1"
+              style={{
+                fontSize: '10px',
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
               <Clock size={10} />
               等待中 ({pendingTasks.length})
             </h3>
@@ -226,8 +391,16 @@ export function BatchTaskPanel() {
         {/* Completed */}
         {completedTasks.length > 0 && (
           <section>
-            <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-              <CheckCircle size={10} className="text-green-400" />
+            <h3
+              className="mb-2 flex items-center gap-1"
+              style={{
+                fontSize: '10px',
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <CheckCircle size={10} style={{ color: 'oklch(0.7 0.15 145)' }} />
               已完成 ({completedTasks.length})
             </h3>
             <div className="space-y-2">
@@ -250,8 +423,16 @@ export function BatchTaskPanel() {
         {/* Failed */}
         {failedTasks.length > 0 && (
           <section>
-            <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-              <XCircle size={10} className="text-red-400" />
+            <h3
+              className="mb-2 flex items-center gap-1"
+              style={{
+                fontSize: '10px',
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <XCircle size={10} style={{ color: 'oklch(0.6 0.2 25)' }} />
               失败 ({failedTasks.length})
             </h3>
             <div className="space-y-2">
@@ -268,10 +449,26 @@ export function BatchTaskPanel() {
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-border shrink-0 space-y-2">
+      <div
+        className="p-4 shrink-0 space-y-2"
+        style={{
+          borderTop: '1px solid var(--color-border)',
+        }}
+      >
         <button
           onClick={() => window.api.openDownloadDir()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-surface-2 hover:bg-surface-3 border border-border rounded-lg text-xs font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 transition-colors"
+          style={{
+            padding: '8px 16px',
+            background: 'var(--color-surface-2)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '12px',
+            fontWeight: 500,
+            color: 'var(--color-text-secondary)',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-3)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
         >
           <FolderOpen size={14} />
           打开下载目录
@@ -279,7 +476,17 @@ export function BatchTaskPanel() {
         {batchInfo?.status === 'running' && (
           <button
             onClick={() => window.api.stopBatch()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 transition-colors"
+            style={{
+              padding: '8px 16px',
+              background: 'oklch(0.6 0.2 25 / 0.2)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: 'oklch(0.6 0.2 25)',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.3)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.2)'}
           >
             <Pause size={14} />
             停止批量任务
@@ -288,7 +495,17 @@ export function BatchTaskPanel() {
         {pendingTasks.length > 0 && batchInfo?.status !== 'running' && (
           <button
             onClick={() => window.api.startBatch()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-brand-gradient hover:shadow-[var(--shadow-brand)] text-white rounded-lg text-xs font-medium transition-all hover:-translate-y-0.5"
+            className="w-full flex items-center justify-center gap-2 transition-colors"
+            style={{
+              padding: '8px 16px',
+              background: 'var(--color-brand)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: 'white',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'oklch(0.55 0.25 270)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-brand)'}
           >
             <Play size={14} />
             开始执行
@@ -310,15 +527,22 @@ export function BatchStatusMini() {
   const running = batchTasks.filter(t => ['submitted', 'generating'].includes(t.status)).length;
 
   return (
-    <div className="px-4 py-2 bg-surface-2 border-b border-border flex items-center justify-between text-xs">
+    <div
+      className="px-4 py-2 flex items-center justify-between"
+      style={{
+        background: 'var(--color-surface-2)',
+        borderBottom: '1px solid var(--color-border)',
+        fontSize: '12px',
+      }}
+    >
       <div className="flex items-center gap-3">
-        <span className="text-text-secondary">📦 {batchInfo.name}</span>
-        <span className="text-text-muted">|</span>
-        <span className="text-brand">{completed}/{total} 完成</span>
+        <span style={{ color: 'var(--color-text-secondary)' }}>📦 {batchInfo.name}</span>
+        <span style={{ color: 'var(--color-text-muted)' }}>|</span>
+        <span style={{ color: 'var(--color-brand)' }}>{completed}/{total} 完成</span>
         {running > 0 && (
           <>
-            <span className="text-text-muted">|</span>
-            <span className="text-yellow-400 flex items-center gap-1">
+            <span style={{ color: 'var(--color-text-muted)' }}>|</span>
+            <span className="flex items-center gap-1" style={{ color: 'oklch(0.75 0.16 75)' }}>
               <Loader2 size={10} className="animate-spin" />
               {running} 个执行中
             </span>
@@ -327,7 +551,12 @@ export function BatchStatusMini() {
       </div>
       <button
         onClick={() => setActivePanel('results')}
-        className="text-brand hover:underline"
+        style={{
+          color: 'var(--color-brand)',
+          fontSize: '12px',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+        onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
       >
         查看详情 →
       </button>

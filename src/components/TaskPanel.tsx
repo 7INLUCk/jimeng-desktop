@@ -8,10 +8,10 @@ import { useStore, type TaskRecord, type TaskFilter } from '../store';
 
 // ── Status Colors ──
 const statusColor: Record<string, string> = {
-  pending: 'oklch(0.65 0.02 260)',
-  uploading: 'oklch(0.65 0.25 270)',
+  pending: 'var(--color-text-secondary)',
+  uploading: 'var(--color-brand)',
   queued: 'oklch(0.75 0.16 75)',
-  generating: 'oklch(0.65 0.25 270)',
+  generating: 'var(--color-brand)',
   completed: 'oklch(0.7 0.15 145)',
   downloaded: 'oklch(0.7 0.15 145)',
   failed: 'oklch(0.6 0.2 25)',
@@ -51,28 +51,49 @@ function ActiveTaskCard({ task, onDragStart, onDragOver, onDrop, draggable }: {
 
   return (
     <div
-      className="bg-surface-2 border border-border-subtle rounded-lg p-3.5 animate-fade-in-up transition-all duration-150"
+      className="transition-all duration-150"
       draggable={draggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      style={{ cursor: draggable ? 'grab' : 'default', opacity: draggable ? 1 : 0.95 }}
+      style={{
+        cursor: draggable ? 'grab' : 'default',
+        opacity: draggable ? 1 : 0.95,
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        padding: '14px',
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {/* Title row */}
           <div className="flex items-center gap-2 mb-1">
-            {draggable && <span className="text-text-disabled cursor-grab select-none">⠿</span>}
-            <span className="text-xs">
+            {draggable && <span style={{ color: 'var(--color-text-disabled)', cursor: 'grab' }}>⠿</span>}
+            <span style={{ fontSize: '12px' }}>
               {isGenerating ? '🔄' : isQueued ? '⏳' : '📤'}
             </span>
-            <span className="text-xs font-medium text-text-primary truncate" title={task.prompt}>
+            <span
+              className="truncate"
+              style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: 'var(--color-text-primary)',
+              }}
+              title={task.prompt}
+            >
               {task.prompt.slice(0, 40)}{task.prompt.length > 40 ? '…' : ''}
             </span>
           </div>
 
           {/* Model & status */}
-          <p className="text-[11px] text-text-muted mb-2">
+          <p
+            className="mb-2"
+            style={{
+              fontSize: '11px',
+              color: 'var(--color-text-muted)',
+            }}
+          >
             {task.model} · {statusLabel[task.status]}
             {isQueued && task.queuePosition != null && ` · 队列 #${task.queuePosition}`}
           </p>
@@ -81,21 +102,35 @@ function ActiveTaskCard({ task, onDragStart, onDragOver, onDrop, draggable }: {
           {isGenerating && (
             <div className="mb-2">
               <div className="flex items-center justify-between mb-1">
-                <div className="flex-1 h-1.5 bg-surface-3 rounded-full overflow-hidden mr-3">
+                <div
+                  className="flex-1 overflow-hidden mr-3"
+                  style={{
+                    height: '6px',
+                    background: 'var(--color-surface-3)',
+                    borderRadius: 'var(--radius-lg)',
+                  }}
+                >
                   <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    className="h-full transition-all duration-500 ease-out"
                     style={{
                       width: `${progress}%`,
+                      borderRadius: 'var(--radius-lg)',
                       backgroundColor: statusColor.generating,
                     }}
                   />
                 </div>
-                <span className="text-[10px] font-mono text-text-secondary shrink-0">
+                <span
+                  className="shrink-0 font-mono"
+                  style={{
+                    fontSize: '10px',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
                   {progress}%
                 </span>
               </div>
               {task.estimatedMinutes != null && (
-                <p className="text-[10px] text-text-disabled">
+                <p style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}>
                   预计剩余: {task.estimatedMinutes} 分钟
                 </p>
               )}
@@ -104,7 +139,7 @@ function ActiveTaskCard({ task, onDragStart, onDragOver, onDrop, draggable }: {
 
           {/* Queue estimation */}
           {isQueued && task.queuePosition != null && task.queuePosition > 5000 && (
-            <p className="text-[10px] text-text-disabled">
+            <p style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}>
               预计等待: 约 {Math.ceil(task.queuePosition / 100)} 分钟
             </p>
           )}
@@ -115,7 +150,22 @@ function ActiveTaskCard({ task, onDragStart, onDragOver, onDrop, draggable }: {
       <div className="flex items-center justify-end gap-1.5 mt-1">
         <button
           onClick={() => updateTask(task.id, { status: 'failed', error: '用户取消', completedAt: Date.now() })}
-          className="px-2.5 py-1 rounded-md text-[11px] font-medium text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-150"
+          className="transition-all duration-150"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '11px',
+            fontWeight: 500,
+            color: 'var(--color-text-muted)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'oklch(0.6 0.2 25)';
+            e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--color-text-muted)';
+            e.currentTarget.style.background = 'transparent';
+          }}
         >
           取消
         </button>
@@ -148,37 +198,83 @@ function CompletedTaskCard({ task, highlighted }: { task: TaskRecord; highlighte
   return (
     <div
       ref={cardRef}
-      className={`
-        group bg-surface-2 border rounded-lg overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]
-        ${highlighted ? 'border-brand shadow-[var(--shadow-brand)]' : 'border-border-subtle hover:border-border'}
-      `}
+      className="group overflow-hidden transition-all duration-200"
+      style={{
+        background: 'var(--color-surface-2)',
+        borderRadius: 'var(--radius-md)',
+        border: highlighted
+          ? '1px solid var(--color-brand)'
+          : '1px solid var(--color-border-subtle)',
+        boxShadow: highlighted ? 'var(--shadow-brand)' : 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        if (!highlighted) {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-card)';
+          e.currentTarget.style.borderColor = 'var(--color-border)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!highlighted) {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'transparent';
+          e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+        }
+      }}
     >
       {/* Thumbnail area */}
-      <div className="aspect-video bg-surface-3 relative overflow-hidden">
+      <div
+        className="aspect-video relative overflow-hidden"
+        style={{ background: 'var(--color-surface-3)' }}
+      >
         {task.thumbnailUrl ? (
           <img
             src={task.thumbnailUrl}
             alt={task.prompt.slice(0, 20)}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-300"
             loading="lazy"
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Film size={24} className="text-text-disabled" />
+            <Film size={24} style={{ color: 'var(--color-text-disabled)' }} />
           </div>
         )}
 
         {/* Duration badge */}
-        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-white/90 font-mono">
+        <div
+          className="absolute top-1.5 left-1.5 flex items-center"
+          style={{
+            padding: '2px 6px',
+            background: 'rgb(0 0 0 / 0.7)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '10px',
+            color: 'rgb(255 255 255 / 0.9)',
+            fontFamily: 'monospace',
+          }}
+        >
           {task.duration}s
         </div>
 
         {/* Action overlay */}
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+        <div
+          className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200"
+        >
           {task.resultUrl && (
             <button
               onClick={() => useStore.getState().setPreviewUrl(task.resultUrl!)}
-              className="p-1.5 rounded-md bg-black/60 backdrop-blur-sm hover:bg-brand text-white transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                background: 'rgb(0 0 0 / 0.6)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: 'var(--radius-md)',
+                color: 'white',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-brand)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgb(0 0 0 / 0.6)'}
               title="预览"
             >
               <Play size={13} />
@@ -187,7 +283,16 @@ function CompletedTaskCard({ task, highlighted }: { task: TaskRecord; highlighte
           {task.resultUrl && (
             <button
               onClick={handleDownload}
-              className="p-1.5 rounded-md bg-black/60 backdrop-blur-sm hover:bg-brand text-white transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                background: 'rgb(0 0 0 / 0.6)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: 'var(--radius-md)',
+                color: 'white',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-brand)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgb(0 0 0 / 0.6)'}
               title="下载"
             >
               <Download size={13} />
@@ -196,7 +301,16 @@ function CompletedTaskCard({ task, highlighted }: { task: TaskRecord; highlighte
           {task.localPath && (
             <button
               onClick={() => window.api.openFile(task.localPath!)}
-              className="p-1.5 rounded-md bg-black/60 backdrop-blur-sm hover:bg-brand text-white transition-colors"
+              className="transition-colors"
+              style={{
+                padding: '6px',
+                background: 'rgb(0 0 0 / 0.6)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: 'var(--radius-md)',
+                color: 'white',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-brand)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgb(0 0 0 / 0.6)'}
               title="打开文件"
             >
               <FolderOpen size={13} />
@@ -207,18 +321,34 @@ function CompletedTaskCard({ task, highlighted }: { task: TaskRecord; highlighte
 
       {/* Info */}
       <div className="p-2">
-        <p className="text-[11px] text-text-primary line-clamp-2 leading-relaxed" title={task.prompt}>
+        <p
+          className="line-clamp-2 leading-relaxed"
+          style={{
+            fontSize: '11px',
+            color: 'var(--color-text-primary)',
+          }}
+          title={task.prompt}
+        >
           {task.prompt || '无提示词'}
         </p>
         <div className="flex items-center justify-between mt-1">
-          <p className="text-[10px] text-text-disabled font-mono">
+          <p
+            className="font-mono"
+            style={{
+              fontSize: '10px',
+              color: 'var(--color-text-disabled)',
+            }}
+          >
             {new Date(task.completedAt || task.createdAt).toLocaleString('zh-CN', {
               month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
             })}
           </p>
           <span
-            className="text-[10px] font-medium"
-            style={{ color: task.status === 'downloaded' ? statusColor.downloaded : statusColor.completed }}
+            style={{
+              fontSize: '10px',
+              fontWeight: 500,
+              color: task.status === 'downloaded' ? statusColor.downloaded : statusColor.completed,
+            }}
           >
             {task.status === 'downloaded' ? '✅ 已下载' : '✅ 完成'}
           </span>
@@ -233,19 +363,47 @@ function FailedTaskCard({ task }: { task: TaskRecord }) {
   const { retryTask, removeTask } = useStore();
 
   return (
-    <div className="bg-surface-2 border border-border-subtle rounded-lg p-3.5 animate-fade-in-up">
+    <div
+      className="transition-all duration-150"
+      style={{
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        padding: '14px',
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs">🎬</span>
-            <span className="text-xs font-medium text-text-primary truncate" title={task.prompt}>
+            <span style={{ fontSize: '12px' }}>🎬</span>
+            <span
+              className="truncate"
+              style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: 'var(--color-text-primary)',
+              }}
+              title={task.prompt}
+            >
               {task.prompt.slice(0, 40)}{task.prompt.length > 40 ? '…' : ''}
             </span>
           </div>
-          <p className="text-[11px] mt-1" style={{ color: statusColor.failed }}>
+          <p
+            className="mt-1"
+            style={{
+              fontSize: '11px',
+              color: statusColor.failed,
+            }}
+          >
             ❌ {task.error || '未知错误'}
           </p>
-          <p className="text-[10px] text-text-disabled mt-1 font-mono">
+          <p
+            className="mt-1 font-mono"
+            style={{
+              fontSize: '10px',
+              color: 'var(--color-text-disabled)',
+            }}
+          >
             {new Date(task.createdAt).toLocaleString('zh-CN')} · 重试 {task.retryCount} 次
           </p>
         </div>
@@ -253,13 +411,37 @@ function FailedTaskCard({ task }: { task: TaskRecord }) {
       <div className="flex items-center justify-end gap-1.5 mt-2">
         <button
           onClick={() => retryTask(task.id)}
-          className="px-2.5 py-1 rounded-md text-[11px] font-medium text-brand hover:bg-brand/10 transition-all duration-150 flex items-center gap-1"
+          className="flex items-center gap-1 transition-all duration-150"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '11px',
+            fontWeight: 500,
+            color: 'var(--color-brand)',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-brand-subtle)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <RefreshCw size={12} /> 重试
         </button>
         <button
           onClick={() => removeTask(task.id)}
-          className="px-2.5 py-1 rounded-md text-[11px] font-medium text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 flex items-center gap-1"
+          className="flex items-center gap-1 transition-all duration-150"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '11px',
+            fontWeight: 500,
+            color: 'var(--color-text-muted)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'oklch(0.6 0.2 25)';
+            e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--color-text-muted)';
+            e.currentTarget.style.background = 'transparent';
+          }}
         >
           <Trash2 size={12} /> 删除
         </button>
@@ -332,16 +514,37 @@ export function TaskPanel() {
   }, [highlightedTaskId, setHighlightedTaskId]);
 
   return (
-    <div className="flex flex-col h-full bg-surface-0">
+    <div
+      className="flex flex-col h-full"
+      style={{ background: 'var(--color-surface)' }}
+    >
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-border-subtle flex-shrink-0">
+      <header
+        className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+        style={{
+          borderBottom: '1px solid var(--color-border-subtle)',
+        }}
+      >
         <div className="flex items-center gap-2.5">
-          <ListTodo size={16} className="text-brand" />
-          <h1 className="text-sm font-semibold text-text-primary">任务管理</h1>
+          <ListTodo size={16} style={{ color: 'var(--color-brand)' }} />
+          <h1
+            style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+            }}
+          >任务管理</h1>
         </div>
 
         {/* Filter tabs */}
-        <div className="flex items-center bg-surface-2 rounded-lg p-0.5 gap-0.5">
+        <div
+          className="flex items-center gap-0.5"
+          style={{
+            background: 'var(--color-surface-2)',
+            borderRadius: 'var(--radius-md)',
+            padding: '2px',
+          }}
+        >
           {filterTabs.map(tab => {
             const isActive = activeTaskFilter === tab.key;
             // Count per tab
@@ -353,20 +556,46 @@ export function TaskPanel() {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`
-                  px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-150 flex items-center gap-1
-                  ${isActive
-                    ? 'bg-brand text-white shadow-sm'
-                    : 'text-text-muted hover:text-text-secondary'
+                className="flex items-center gap-1 transition-all duration-150"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  color: isActive
+                    ? 'white'
+                    : 'var(--color-text-muted)',
+                  background: isActive
+                    ? 'var(--color-brand)'
+                    : 'transparent',
+                  boxShadow: isActive ? '0 1px 2px rgb(0 0 0 / 0.05)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.color = 'var(--color-text-secondary)';
                   }
-                `}
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.color = 'var(--color-text-muted)';
+                  }
+                }}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className={`
-                    min-w-[16px] h-4 px-1 rounded-full text-[10px] flex items-center justify-center
-                    ${isActive ? 'bg-white/20' : 'bg-surface-3'}
-                  `}>
+                  <span
+                    className="flex items-center justify-center"
+                    style={{
+                      minWidth: '16px',
+                      height: '16px',
+                      padding: '0 4px',
+                      borderRadius: 'var(--radius-lg)',
+                      fontSize: '10px',
+                      background: isActive
+                        ? 'rgb(255 255 255 / 0.2)'
+                        : 'var(--color-surface-3)',
+                    }}
+                  >
                     {count}
                   </span>
                 )}
@@ -381,14 +610,51 @@ export function TaskPanel() {
         {!hasAnyTasks ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
-              <ListTodo size={28} className="text-text-disabled" />
+            <div
+              className="flex items-center justify-center mb-4"
+              style={{
+                width: '64px',
+                height: '64px',
+                background: 'var(--color-surface-2)',
+                borderRadius: 'var(--radius-lg)',
+              }}
+            >
+              <ListTodo size={28} style={{ color: 'var(--color-text-disabled)' }} />
             </div>
-            <p className="text-sm font-medium text-text-secondary mb-1">还没有任务</p>
-            <p className="text-xs text-text-muted mb-4">去对话框创建一个吧</p>
+            <p
+              className="mb-1"
+              style={{
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'var(--color-text-secondary)',
+              }}
+            >还没有任务</p>
+            <p
+              className="mb-4"
+              style={{
+                fontSize: '12px',
+                color: 'var(--color-text-muted)',
+              }}
+            >去对话框创建一个吧</p>
             <button
               onClick={() => useStore.getState().setActivePanel('chat')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-xs text-text-secondary hover:text-text-primary transition-all duration-150 border border-border-subtle"
+              className="flex items-center gap-1.5 transition-all duration-150"
+              style={{
+                padding: '6px 12px',
+                background: 'var(--color-surface-2)',
+                border: '1px solid var(--color-border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '12px',
+                color: 'var(--color-text-secondary)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--color-surface-3)';
+                e.currentTarget.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--color-surface-2)';
+                e.currentTarget.style.color = 'var(--color-text-secondary)';
+              }}
             >
               <ArrowRight size={14} />
               前往对话
@@ -399,20 +665,50 @@ export function TaskPanel() {
             {/* 🔄 Generating group */}
             {generatingTasks.length > 0 && (
               <section>
-                <h3 className="text-[11px] font-medium text-text-muted mb-2.5 flex items-center gap-1.5">
+                <h3
+                  className="mb-2.5 flex items-center gap-1.5"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
                   <Loader2 size={12} className="animate-spin" style={{ color: statusColor.generating }} />
                   生成中
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
+                  <span
+                    className="ml-1"
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: 'var(--color-surface-3)',
+                      fontSize: '10px',
+                    }}
+                  >
                     {generatingTasks.length}
                   </span>
                   {generatingTasks.length > 0 && (
-                    <span className="text-[10px] text-text-disabled">
+                    <span style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}>
                       · 预计还需 ~{generatingTasks.length * 3} 分钟
                     </span>
                   )}
                   <button
                     onClick={() => generatingTasks.forEach(t => updateTask(t.id, { status: 'failed', error: '用户取消', completedAt: Date.now() }))}
-                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-150"
+                    className="ml-auto flex items-center gap-1 transition-all duration-150"
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: 'var(--color-text-muted)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'oklch(0.6 0.2 25)';
+                      e.currentTarget.style.background = 'oklch(0.6 0.2 25 / 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--color-text-muted)';
+                      e.currentTarget.style.background = 'transparent';
+                    }}
                   >
                     <StopCircle size={11} />
                     全部取消
@@ -436,14 +732,29 @@ export function TaskPanel() {
             {/* ⏳ Queued group */}
             {queuedTasks.length > 0 && (
               <section>
-                <h3 className="text-[11px] font-medium text-text-muted mb-2.5 flex items-center gap-1.5">
+                <h3
+                  className="mb-2.5 flex items-center gap-1.5"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
                   <Clock size={12} style={{ color: statusColor.queued }} />
                   排队中
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
+                  <span
+                    className="ml-1"
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: 'var(--color-surface-3)',
+                      fontSize: '10px',
+                    }}
+                  >
                     {queuedTasks.length}
                   </span>
                   {queuedTasks.length > 0 && (
-                    <span className="text-[10px] text-text-disabled">
+                    <span style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}>
                       · 预计还需 ~{(generatingTasks.length + queuedTasks.length) * 3} 分钟
                     </span>
                   )}
@@ -466,10 +777,25 @@ export function TaskPanel() {
             {/* ✅ Completed group */}
             {filteredTasks.completedTasks.length > 0 && (
               <section>
-                <h3 className="text-[11px] font-medium text-text-muted mb-2.5 flex items-center gap-1.5">
+                <h3
+                  className="mb-2.5 flex items-center gap-1.5"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
                   <CheckCircle size={12} style={{ color: statusColor.completed }} />
                   已完成
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
+                  <span
+                    className="ml-1"
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: 'var(--color-surface-3)',
+                      fontSize: '10px',
+                    }}
+                  >
                     {filteredTasks.completedTasks.length}
                   </span>
                   <button
@@ -480,13 +806,33 @@ export function TaskPanel() {
                         });
                       }
                     })}
-                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-text-muted hover:text-brand hover:bg-brand/10 transition-all duration-150"
+                    className="ml-auto flex items-center gap-1 transition-all duration-150"
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: 'var(--color-text-muted)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--color-brand)';
+                      e.currentTarget.style.background = 'var(--color-brand-subtle)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--color-text-muted)';
+                      e.currentTarget.style.background = 'transparent';
+                    }}
                   >
                     <Download size={11} />
                     全部下载
                   </button>
                 </h3>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 stagger-children">
+                <div
+                  className="grid gap-3"
+                  style={{
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                  }}
+                >
                   {filteredTasks.completedTasks.map(task => (
                     <CompletedTaskCard
                       key={task.id}
@@ -501,10 +847,25 @@ export function TaskPanel() {
             {/* ❌ Failed group */}
             {filteredTasks.failedTasks.length > 0 && (
               <section>
-                <h3 className="text-[11px] font-medium text-text-muted mb-2.5 flex items-center gap-1.5">
+                <h3
+                  className="mb-2.5 flex items-center gap-1.5"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
                   <XCircle size={12} style={{ color: statusColor.failed }} />
                   失败
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-surface-3 text-[10px]">
+                  <span
+                    className="ml-1"
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: 'var(--radius-lg)',
+                      background: 'var(--color-surface-3)',
+                      fontSize: '10px',
+                    }}
+                  >
                     {filteredTasks.failedTasks.length}
                   </span>
                 </h3>
