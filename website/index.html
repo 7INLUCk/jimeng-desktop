@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="VidClaw - 用 AI 批量生成视频的 Mac 桌面工具，基于 Seedance 2.0">
+  <meta name="og:url" content="https://vidclaw.ai">
+  <title>VidClaw - AI 批量视频生成工具 | vidclaw.ai</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar" aria-label="主导航">
+    <div class="container nav-container">
+      <a href="#" class="nav-logo" aria-label="VidClaw Logo">VidClaw</a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">功能</a>
+        <a href="https://github.com/7INLUCk/vidclaw/releases/download/v0.1.0/VidClaw-0.1.0-arm64.dmg" class="nav-link">下载</a>
+        <a href="https://github.com/7INLUCk/vidclaw" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-bg-glow" aria-hidden="true"></div>
+    <div class="container">
+      <h1 id="hero-title" class="hero-title fade-in">用 AI 批量生产视频</h1>
+      <p class="hero-subtitle fade-in">基于 Seedance 2.0，自然语言出片。批量任务，一键下载。</p>
+      <div class="hero-cta-group fade-in">
+        <a href="https://github.com/7INLUCk/vidclaw/releases/download/v0.1.0/VidClaw-0.1.0-arm64.dmg" class="cta-button primary" role="button">下载 macOS 版</a>
+        <a href="#features" class="cta-button secondary" role="button">了解更多 ↓</a>
+      </div>
+      
+      <!-- Product Mockup with Glassmorphism -->
+      <div class="hero-mockup fade-in" aria-label="VidClaw 产品界面预览">
+        <div class="mockup-window">
+          <div class="mockup-titlebar">
+            <span class="titlebar-dot red"></span>
+            <span class="titlebar-dot yellow"></span>
+            <span class="titlebar-dot green"></span>
+            <span class="titlebar-title">VidClaw</span>
+          </div>
+          <div class="mockup-content">
+            <!-- Sidebar -->
+            <div class="mockup-sidebar">
+              <div class="sidebar-item active">
+                <span class="sidebar-icon">💬</span>
+                <span class="sidebar-text">对话生成</span>
+              </div>
+              <div class="sidebar-item">
+                <span class="sidebar-icon">📋</span>
+                <span class="sidebar-text">任务列表</span>
+              </div>
+              <div class="sidebar-item">
+                <span class="sidebar-icon">👤</span>
+                <span class="sidebar-text">账号管家</span>
+              </div>
+              <div class="sidebar-item">
+                <span class="sidebar-icon">⚙️</span>
+                <span class="sidebar-text">设置</span>
+              </div>
+            </div>
+            
+            <!-- Main Chat Area -->
+            <div class="mockup-main">
+              <div class="mockup-chat">
+                <div class="chat-message user">
+                  <span class="chat-text">一只猫在阳台上晒太阳，午后阳光</span>
+                </div>
+                <div class="chat-message ai">
+                  <span class="chat-label">AI 优化提示词</span>
+                  <span class="chat-text optimized">A cat lounging on a sun-drenched balcony, soft afternoon golden hour light...</span>
+                </div>
+              </div>
+              
+              <!-- Video Results Preview -->
+              <div class="mockup-results">
+                <span class="results-label">生成结果</span>
+                <div class="results-grid">
+                  <div class="result-thumb">
+                    <span class="thumb-icon">🎬</span>
+                    <span class="thumb-duration">5s</span>
+                  </div>
+                  <div class="result-thumb">
+                    <span class="thumb-icon">🎬</span>
+                    <span class="thumb-duration">5s</span>
+                  </div>
+                  <div class="result-thumb pending">
+                    <span class="thumb-icon">⏳</span>
+                    <span class="thumb-status">生成中</span>
+                  </div>
+                </div>
+                <button class="mockup-download-btn" aria-label="下载全部">
+                  <span>⬇️</span> 一键下载全部
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pain Points Section -->
+  <section class="pain-points" aria-labelledby="comparison-title">
+    <div class="container">
+      <h2 id="comparison-title" class="section-title fade-in">网页版 vs VidClaw</h2>
+      <div class="comparison-grid fade-in">
+        <div class="comparison-column">
+          <div class="column-header">即梦网页版</div>
+          <div class="comparison-item">
+            <span class="label">生成效率</span>
+            <span class="value">手动逐个</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">提示词</span>
+            <span class="value">自己写</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">下载</span>
+            <span class="value">逐个右键保存</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">多账号</span>
+            <span class="value">频繁切换</span>
+          </div>
+        </div>
+        <div class="comparison-column highlight">
+          <div class="column-header">VidClaw</div>
+          <div class="comparison-item">
+            <span class="label">生成效率</span>
+            <span class="value brand-text">批量自动</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">提示词</span>
+            <span class="value brand-text">AI 自动改写</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">下载</span>
+            <span class="value brand-text">一键全部下载</span>
+          </div>
+          <div class="comparison-item">
+            <span class="label">多账号</span>
+            <span class="value brand-text">一键切换 + 积分管理</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Features Section -->
+  <section class="features" id="features" aria-labelledby="features-title">
+    <div class="container">
+      <h2 id="features-title" class="section-title fade-in">核心功能</h2>
+      
+      <!-- Feature A: Say Natural Language -->
+      <div class="feature-row fade-in">
+        <div class="feature-content">
+          <h3 class="feature-title">说人话就行</h3>
+          <p class="feature-text">中文描述场景，AI 自动优化为 Seedance 2.0 最佳提示词结构。不用研究参数，说人话就行。</p>
+        </div>
+        <div class="feature-visual" aria-label="对话功能演示">
+          <div class="feature-mockup glass-card">
+            <div class="mockup-input-area">
+              <input type="text" class="mockup-input" placeholder="描述你想要的视频..." value="城市夜景，霓虹灯光" readonly>
+              <button class="mockup-send-btn">
+                <span>发送</span>
+                <span class="send-icon">→</span>
+              </button>
+            </div>
+            <div class="mockup-output">
+              <div class="output-header">
+                <span class="output-label">AI 优化输出</span>
+                <span class="output-badge">✓ 已优化</span>
+              </div>
+              <div class="output-content">
+                <p class="optimized-prompt">Urban night scene with vibrant neon lights, cinematic atmosphere, bokeh effect, photorealistic quality, 4K resolution</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature B: Batch Processing -->
+      <div class="feature-row reverse fade-in">
+        <div class="feature-visual" aria-label="批量任务演示">
+          <div class="feature-mockup glass-card">
+            <div class="batch-header">
+              <span class="batch-title">批量任务列表</span>
+              <span class="batch-count">3 个任务</span>
+            </div>
+            <div class="batch-list">
+              <div class="batch-item completed">
+                <div class="batch-item-header">
+                  <span class="batch-item-name">城市夜景系列 01</span>
+                  <span class="batch-item-status success">✓ 完成</span>
+                </div>
+                <div class="batch-progress">
+                  <div class="progress-track">
+                    <div class="progress-fill full"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="batch-item running">
+                <div class="batch-item-header">
+                  <span class="batch-item-name">城市夜景系列 02</span>
+                  <span class="batch-item-status processing">⏳ 生成中 60%</span>
+                </div>
+                <div class="batch-progress">
+                  <div class="progress-track">
+                    <div class="progress-fill partial" style="width: 60%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="batch-item pending">
+                <div class="batch-item-header">
+                  <span class="batch-item-name">城市夜景系列 03</span>
+                  <span class="batch-item-status waiting">排队中</span>
+                </div>
+                <div class="batch-progress">
+                  <div class="progress-track">
+                    <div class="progress-fill empty"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-content">
+          <h3 class="feature-title">批量出片</h3>
+          <p class="feature-text">描述你的系列内容，AI 自动拆分为多个任务并排队执行。你去喝杯咖啡，回来视频全好了。</p>
+        </div>
+      </div>
+
+      <!-- Feature C: Account Manager -->
+      <div class="feature-row fade-in">
+        <div class="feature-content">
+          <h3 class="feature-title">账号管家</h3>
+          <p class="feature-text">积分余额实时看，多账号无缝切换。工作室多号运营，不再反复扫码。</p>
+        </div>
+        <div class="feature-visual" aria-label="账号管家演示">
+          <div class="feature-mockup glass-card">
+            <div class="account-header">
+              <span class="account-name">当前账号：工作室主号</span>
+              <button class="account-switch-btn">切换账号</button>
+            </div>
+            <div class="balance-grid">
+              <div class="balance-card">
+                <div class="balance-number">12,580</div>
+                <div class="balance-label">剩余积分</div>
+                <div class="balance-bar">
+                  <div class="bar-fill high"></div>
+                </div>
+              </div>
+              <div class="balance-card">
+                <div class="balance-number">48</div>
+                <div class="balance-label">今日已用</div>
+              </div>
+              <div class="balance-card">
+                <div class="balance-number">3</div>
+                <div class="balance-label">进行任务</div>
+              </div>
+              <div class="balance-card">
+                <div class="balance-number">128</div>
+                <div class="balance-label">已下载</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow Section -->
+  <section class="workflow" aria-labelledby="workflow-title">
+    <div class="container">
+      <h2 id="workflow-title" class="section-title fade-in">3 步出片</h2>
+      <div class="workflow-steps fade-in">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4 class="step-title">扫码登录</h4>
+            <p class="step-text">用即梦账号直接登录</p>
+          </div>
+        </div>
+        <div class="step-arrow" aria-hidden="true">
+          <span class="arrow-line"></span>
+          <span class="arrow-head">→</span>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4 class="step-title">描述需求</h4>
+            <p class="step-text">自然语言输入，AI 自动改写</p>
+          </div>
+        </div>
+        <div class="step-arrow" aria-hidden="true">
+          <span class="arrow-line"></span>
+          <span class="arrow-head">→</span>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4 class="step-title">下载成片</h4>
+            <p class="step-text">一键下载到本地</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack Section -->
+  <section class="tech-stack" aria-labelledby="tech-title">
+    <div class="container">
+      <div class="tech-badge fade-in">
+        <span class="badge-label">Powered by</span>
+        <span class="badge-name">Seedance 2.0</span>
+        <span class="badge-desc">字节跳动旗舰视频生成引擎</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section class="download" id="download" aria-labelledby="download-title">
+    <div class="container">
+      <h2 id="download-title" class="section-title fade-in">立即下载</h2>
+      <div class="download-cards fade-in">
+        <div class="download-card">
+          <div class="download-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L12 16M12 16L6 10M12 16L18 10M4 20H20" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="card-title">macOS Apple Silicon</h3>
+          <p class="card-subtitle">(推荐)</p>
+          <a href="https://github.com/7INLUCk/vidclaw/releases/download/v0.1.0/VidClaw-0.1.0-arm64.dmg" class="download-button" role="button">
+            <span class="btn-icon">⬇</span> 下载 .dmg
+          </a>
+        </div>
+        <div class="download-card">
+          <div class="download-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L12 16M12 16L6 10M12 16L18 10M4 20H20" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="card-title">macOS Intel</h3>
+          <p class="card-subtitle"></p>
+          <a href="https://github.com/7INLUCk/vidclaw/releases/download/v0.1.0/VidClaw-0.1.0.dmg" class="download-button" role="button">
+            <span class="btn-icon">⬇</span> 下载 .dmg
+          </a>
+        </div>
+      </div>
+      <p class="download-info fade-in">约 120MB | macOS 12.0+</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">VidClaw</div>
+        <div class="footer-links">
+          <a href="https://github.com/7INLUCk/vidclaw" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+      <div class="footer-bottom">© 2025 VidClaw · vidclaw.ai</div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
