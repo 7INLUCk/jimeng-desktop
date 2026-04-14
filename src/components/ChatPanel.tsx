@@ -677,6 +677,7 @@ function AttachmentStack({ files, onView, onRemove, onAdd, canAdd }: {
         const isVid = /\.(mp4|mov)$/i.test(file);
         const isAud = /\.(mp3|wav|aac|m4a)$/i.test(file);
         const name = (file.split('/').pop() || '').replace(/\.[^.]+$/, '');
+        const ext  = (file.split('.').pop() || 'AUD').toUpperCase();
         const isFront = i === frontIdx;
 
         const stackLeft = i * SHIFT;
@@ -719,12 +720,23 @@ function AttachmentStack({ files, onView, onRemove, onAdd, canAdd }: {
               )}
               {isVid && <VideoThumb path={file} size={W} />}
               {isAud && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5"
-                     style={{ background: 'oklch(0.38 0.10 270 / 0.6)', border: '1px solid oklch(0.5 0.12 270 / 0.35)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'oklch(0.50 0.12 270 / 0.35)' }}>
-                    <span className="text-base">🎵</span>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2 relative overflow-hidden"
+                     style={{ background: 'linear-gradient(145deg, oklch(0.38 0.22 285), oklch(0.50 0.20 305))' }}>
+                  {/* Waveform bars */}
+                  <div className="flex items-end gap-[3px]" style={{ height: 28 }}>
+                    {[38, 68, 50, 88, 58, 76, 40].map((h, j) => (
+                      <div key={j} className="rounded-full" style={{
+                        width: 3,
+                        height: `${h}%`,
+                        background: 'rgba(255,255,255,0.75)',
+                      }} />
+                    ))}
                   </div>
-                  <span className="text-[9px] text-white/80 px-1.5 text-center leading-tight w-full truncate">{name}</span>
+                  {/* Format badge */}
+                  <span className="text-[8px] font-mono font-semibold tracking-wider rounded-full px-1.5 py-px"
+                        style={{ color: 'rgba(255,255,255,0.95)', background: 'rgba(255,255,255,0.18)' }}>
+                    {ext}
+                  </span>
                 </div>
               )}
             </div>
