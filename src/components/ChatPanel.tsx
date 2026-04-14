@@ -1445,16 +1445,16 @@ export function ChatPanel() {
     // 按类型分类并命名文件
     let imageIdx = 0, videoIdx = 0, audioIdx = 0;
     selectedFiles.forEach(f => {
-      const fileName = f.split('/').pop() || f;
+      const filename = f.split('/').pop() || f;
       if (/\.(mp4|mov|avi|webm)$/i.test(f)) {
         videoIdx++;
-        materials.videos.push({ type: 'video', name: `视频${videoIdx}`, path: f });
-      } else if (/\.(mp3|wav|aac|flac)$/i.test(f)) {
+        materials.videos.push({ type: 'video', name: `视频${videoIdx}`, filename, path: f });
+      } else if (/\.(mp3|wav|aac|m4a|flac)$/i.test(f)) {
         audioIdx++;
-        materials.audios.push({ type: 'audio', name: `音频${audioIdx}`, path: f });
+        materials.audios.push({ type: 'audio', name: `音频${audioIdx}`, filename, path: f });
       } else {
         imageIdx++;
-        materials.images.push({ type: 'image', name: `图片${imageIdx}`, path: f });
+        materials.images.push({ type: 'image', name: `图片${imageIdx}`, filename, path: f });
       }
     });
 
@@ -1572,15 +1572,16 @@ export function ChatPanel() {
     };
     let imgIdx = 0, vidIdx = 0, audIdx = 0;
     selectedFiles.forEach(f => {
+      const filename = f.split('/').pop() || f;
       if (/\.(mp4|mov|avi|webm)$/i.test(f)) {
         vidIdx++;
-        batchMaterials.videos.push({ type: 'video', name: `视频${vidIdx}`, path: f });
+        batchMaterials.videos.push({ type: 'video', name: `视频${vidIdx}`, filename, path: f });
       } else if (/\.(mp3|wav|aac|m4a|flac)$/i.test(f)) {
         audIdx++;
-        batchMaterials.audios.push({ type: 'audio', name: `音频${audIdx}`, path: f });
+        batchMaterials.audios.push({ type: 'audio', name: `音频${audIdx}`, filename, path: f });
       } else {
         imgIdx++;
-        batchMaterials.images.push({ type: 'image', name: `图片${imgIdx}`, path: f });
+        batchMaterials.images.push({ type: 'image', name: `图片${imgIdx}`, filename, path: f });
       }
     });
 
