@@ -1932,16 +1932,40 @@ export function ChatPanel() {
     const { files } = await window.api.selectFiles();
     if (!files?.length) return;
 
-    // Validate format + size
+    // Validate format + size + duration + dedup
     const IMG_EXTS = /\.(jpg|jpeg|png|webp)$/i;
     const VID_EXTS = /\.(mp4|mov)$/i;
     const AUD_EXTS = /\.(mp3|wav|aac|m4a)$/i;
     const IMG_MAX = 30 * 1024 * 1024;   // 30 MB
     const VID_MAX = 50 * 1024 * 1024;   // 50 MB
     const AUD_MAX = 10 * 1024 * 1024;   // 10 MB
+    const VID_DUR_TOTAL = 15.4;          // seconds total across all uploaded videos
+    const AUD_DUR_TOTAL = 15.0;          // seconds total across all uploaded audios
 
     const errors: string[] = [];
     const accepted: string[] = [];
+
+    // Track paths to catch within-batch duplicates too
+    const existingPaths = new Set(selectedFiles);
+
+    // Compute total durations already accumulated from previously selected files
+    const getMediaDuration = (path: string, isVid: boolean): Promise<number> =>
+      new Promise((resolve) => {
+        const el = isVid ? document.createElement('video') : document.createElement('audio');
+        el.preload = 'metadata';
+        el.onloadedmetadata = () => resolve(isFinite(el.duration) ? el.duration : 0);
+        el.onerror = () => resolve(0);
+        el.src = `local-file://${path}`;
+      });
+
+    let totalVidDur = 0;
+    for (const v of selectedFiles.filter(f => VID_EXTS.test(f))) {
+      totalVidDur += await getMediaDuration(v, true);
+    }
+    let totalAudDur = 0;
+    for (const a of selectedFiles.filter(f => AUD_EXTS.test(f))) {
+      totalAudDur += await getMediaDuration(a, false);
+    }
 
     for (const f of files) {
       const name = f.split('/').pop() || f;
@@ -1949,6 +1973,12 @@ export function ChatPanel() {
       const isImg = IMG_EXTS.test(f);
       const isVid = VID_EXTS.test(f);
       const isAud = AUD_EXTS.test(f);
+
+      // Dedup check
+      if (existingPaths.has(f)) {
+        errors.push(`${name} 已添加，跳过重复文件`);
+        continue;
+      }
 
       if (!isImg && !isVid && !isAud) {
         errors.push(`不支持的格式 ${ext}（支持：jpg/png/webp, mp4/mov, mp3/wav/aac/m4a）`);
@@ -1975,7 +2005,27 @@ export function ChatPanel() {
         continue;
       }
 
+      // Check duration for video/audio (Seedance 2.0 total duration limits)
+      if (isVid) {
+        const dur = await getMediaDuration(f, true);
+        if (totalVidDur + dur > VID_DUR_TOTAL) {
+          errors.push(`视频 ${name}（${dur.toFixed(1)}s）会超出总时长限制（视频总时长 ≤ 15.4s，已用 ${totalVidDur.toFixed(1)}s）`);
+          continue;
+        }
+        totalVidDur += dur;
+      }
+
+      if (isAud) {
+        const dur = await getMediaDuration(f, false);
+        if (totalAudDur + dur > AUD_DUR_TOTAL) {
+          errors.push(`音频 ${name}（${dur.toFixed(1)}s）会超出总时长限制（音频总时长 ≤ 15s，已用 ${totalAudDur.toFixed(1)}s）`);
+          continue;
+        }
+        totalAudDur += dur;
+      }
+
       accepted.push(f);
+      existingPaths.add(f); // prevent within-batch duplicates
     }
 
     if (errors.length > 0) {
