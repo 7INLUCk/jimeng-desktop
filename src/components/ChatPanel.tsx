@@ -932,34 +932,40 @@ function GuideButton({ label, onClick, disabled, icon }: {
 }
 
 // ── Confirm Card (left accent band + clean layout) ──
-function ConfirmCard({ 
-  task, onConfirm, onEdit, onBack, hasFiles, selectedModel, selectedDuration, selectedRatio,
+function ConfirmCard({
+  task, onConfirm, onEdit, hasFiles, selectedModel, selectedDuration, selectedRatio,
   materials, onDurationChange, onRatioChange, onModelChange, onEditMaterial
 }: {
   task: any;
-  onConfirm: () => void;
+  onConfirm: (editedPrompt?: string) => void;
   onEdit: () => void;
-  onBack?: () => void;
   hasFiles?: boolean;
   selectedModel?: string;
   selectedDuration?: number;
   selectedRatio?: string;
-  materials?: { images: any[]; videos: any[]; audios: any[] }; 
-  onDurationChange?: (d: number) => void; 
-  onRatioChange?: (r: string) => void; 
+  materials?: { images: any[]; videos: any[]; audios: any[] };
+  onDurationChange?: (d: number) => void;
+  onRatioChange?: (r: string) => void;
   onModelChange?: (m: string) => void;
   onEditMaterial?: (index: number, newDesc: string) => void;
 }) {
   const [showParamEditor, setShowParamEditor] = useState(false);
-  const modelLabels: Record<string, string> = {
-    'seedance2.0fast': 'Seedance 2.0 Fast',
-    'seedance2.0': 'Seedance 2.0',
-  };
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState<string>(task.prompt || '');
+  const setPreviewUrl = useStore(s => s.setPreviewUrl);
+
+  const MODEL_OPTIONS = [
+    { value: 'seedance2.0fast', label: 'Seedance 2.0 Fast', desc: '速度快，适合快速预览' },
+    { value: 'seedance2.0',     label: 'Seedance 2.0',      desc: '质量高，推荐正式生产' },
+  ];
+  const currentModelLabel = MODEL_OPTIONS.find(m => m.value === selectedModel)?.label
+    ?? (selectedModel === 'seedance2.0fast' || !selectedModel ? 'Seedance 2.0 Fast' : 'Seedance 2.0');
 
   const durations = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const ratios = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 
-  // 所有素材合并
+  // 所有素材合并（保持分组顺序：图片 → 视频 → 音频）
   const allMaterials = [
     ...(materials?.images || []),
     ...(materials?.videos || []),
@@ -971,32 +977,93 @@ function ConfirmCard({
       {/* Top accent band */}
       <div className="h-px bg-brand flex-shrink-0" />
       <div className="p-4">
-          <p className="text-xs text-brand font-medium mb-2 flex items-center gap-1.5">
-            <span>✨</span> AI 优化后的提示词
-          </p>
-          <p className="text-sm text-text-primary leading-relaxed mb-3">{task.prompt}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-brand font-medium flex items-center gap-1.5">
+              <span>✨</span> AI 优化后的提示词
+            </p>
+            <button
+              onClick={() => { setIsEditingPrompt(v => !v); setEditedPrompt(task.prompt || ''); }}
+              className="text-[11px] text-text-muted hover:text-brand transition-colors flex items-center gap-1"
+            >
+              <RefreshCw size={11} />
+              {isEditingPrompt ? '取消修改' : '修改提示词'}
+            </button>
+          </div>
+
+          {isEditingPrompt ? (
+            <textarea
+              value={editedPrompt}
+              onChange={e => setEditedPrompt(e.target.value)}
+              className="w-full bg-surface-3 border border-brand/40 rounded-md px-3 py-2 text-sm text-text-primary leading-relaxed resize-none outline-none focus:border-brand mb-3"
+              rows={4}
+              autoFocus
+            />
+          ) : (
+            <p className="text-sm text-text-primary leading-relaxed mb-3">{editedPrompt || task.prompt}</p>
+          )}
 
           {/* 改写理由 */}
-          {task.reason && (
+          {task.reason && !isEditingPrompt && (
             <p className="text-xs text-text-secondary mb-3 bg-surface-3 rounded-md px-3 py-2">
-              💡 <span className="font-medium">改写理由:</span>{task.reason}
+              💡 <span className="font-medium">改写理由：</span>{task.reason}
             </p>
           )}
 
-          {/* 素材映射表（可编辑标签） */}
+          {/* 素材缩略图 */}
           {allMaterials.length > 0 && (
             <div className="mb-3">
-              <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">已上传素材（点击可编辑描述）</p>
+              <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">已上传素材</p>
               <div className="flex flex-wrap gap-2">
-                {allMaterials.map((m, i) => (
-                  <MaterialTag
-                    key={i}
-                    material={m}
-                    index={i}
-                    onEdit={(newDesc) => onEditMaterial?.(i, newDesc)}
-                  />
-                ))}
+                {allMaterials.map((m, i) => {
+                  const isImg = m.type === 'image';
+                  const isVid = m.type === 'video';
+                  const isAud = m.type === 'audio';
+                  return (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      {isImg && (
+                        <button
+                          onClick={() => setPreviewImg(m.path)}
+                          className="w-16 h-16 rounded-lg overflow-hidden border border-border hover:border-brand transition-all bg-surface-3"
+                          title={m.name}
+                        >
+                          <img src={localFileUrlSync(m.path)} alt={m.name} className="w-full h-full object-cover"
+                            onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }} />
+                        </button>
+                      )}
+                      {isVid && (
+                        <button
+                          onClick={() => setPreviewUrl(localFileUrlSync(m.path))}
+                          className="w-16 h-16 rounded-lg overflow-hidden border border-border hover:border-brand transition-all relative"
+                          title={m.name}
+                        >
+                          <VideoThumb path={m.path} size={40} />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
+                              <Play size={9} className="text-white ml-0.5" />
+                            </div>
+                          </div>
+                        </button>
+                      )}
+                      {isAud && (
+                        <div className="w-16 h-16 rounded-lg border border-border bg-surface-3 flex flex-col items-center justify-center gap-1">
+                          <span className="text-purple-400 text-lg">♪</span>
+                        </div>
+                      )}
+                      <span className="text-[9px] text-text-muted max-w-[64px] truncate text-center">{m.name}</span>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          )}
+
+          {/* Image lightbox */}
+          {previewImg && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" onClick={() => setPreviewImg(null)}>
+              <img src={localFileUrlSync(previewImg)} alt="preview" className="max-w-[90vw] max-h-[85vh] rounded-xl object-contain" onClick={e => e.stopPropagation()} />
+              <button className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center" onClick={() => setPreviewImg(null)}>
+                <X size={16} className="text-white" />
+              </button>
             </div>
           )}
 
@@ -1004,11 +1071,7 @@ function ConfirmCard({
           <div className="mb-4">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 flex-1 flex-wrap">
-                {[
-                  selectedModel === 'seedance2.0fast' || !selectedModel ? 'Seedance Fast' : 'Seedance 标准',
-                  selectedRatio || '9:16',
-                  `${selectedDuration || 5}s`,
-                ].map((tag) => (
+                {[currentModelLabel, selectedRatio || '9:16', `${selectedDuration || 5}s`].map((tag) => (
                   <span key={tag} className="px-2 py-0.5 bg-surface-3 rounded text-[10px] text-text-secondary font-mono">{tag}</span>
                 ))}
               </div>
@@ -1026,14 +1089,11 @@ function ConfirmCard({
                 <div>
                   <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">模型</p>
                   <div className="flex gap-2">
-                    {[
-                      { value: 'seedance2.0fast', label: 'Fast', desc: '速度快' },
-                      { value: 'seedance2.0', label: '标准', desc: '质量高' },
-                    ].map(m => (
+                    {MODEL_OPTIONS.map(m => (
                       <button key={m.value} onClick={() => onModelChange?.(m.value)}
-                        className={`px-3 py-1.5 text-[11px] rounded-md transition-all flex-1 ${(selectedModel === m.value || (!selectedModel && m.value === 'seedance2.0fast')) ? 'bg-brand text-white' : 'bg-surface-2 text-text-secondary hover:bg-border'}`}>
-                        <span className="font-medium">{m.label}</span>
-                        <span className="block text-[10px] opacity-70">{m.desc}</span>
+                        className={`px-3 py-1.5 text-[11px] rounded-md transition-all flex-1 text-left ${selectedModel === m.value ? 'bg-brand text-white' : 'bg-surface-2 text-text-secondary hover:bg-border'}`}>
+                        <span className="font-medium block">{m.label}</span>
+                        <span className="text-[10px] opacity-70">{m.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -1042,7 +1102,7 @@ function ConfirmCard({
                 <div>
                   <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">时长</p>
                   <div className="grid grid-cols-6 gap-1">
-                    {durations.slice(0, 12).map(d => (
+                    {durations.map(d => (
                       <button key={d} onClick={() => onDurationChange?.(d)}
                         className={`px-2 py-1 text-[11px] rounded-md transition-all ${selectedDuration === d ? 'bg-brand text-white' : 'bg-surface-2 text-text-secondary hover:bg-border'}`}>
                         {d}s
@@ -1067,26 +1127,17 @@ function ConfirmCard({
           </div>
 
           {hasFiles && (
-            <p className="text-[10px] text-accent mb-3">⚡ 结构化模式：素材将通过 API 直接上传</p>
+            <p className="text-[10px] text-text-muted mb-3">📎 素材将随任务一起提交给即梦 CLI</p>
           )}
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm(isEditingPrompt ? editedPrompt : undefined)}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-150 bg-brand hover:bg-brand/90 text-white hover:-translate-y-0.5"
             >
               <CheckCircle size={14} />
               确认提交
             </button>
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="flex items-center gap-1.5 px-4 py-2 bg-surface-3 hover:bg-border text-text-secondary text-xs font-medium rounded-lg transition-all duration-150"
-              >
-                <ChevronDown size={14} className="rotate-180" />
-                返回修改
-              </button>
-            )}
             <button
               onClick={onEdit}
               className="flex items-center gap-1.5 px-4 py-2 bg-surface-3 hover:bg-border text-text-secondary text-xs font-medium rounded-lg transition-all duration-150"
@@ -1183,6 +1234,100 @@ function FilePreviewChip({ material }: { material: { type: string; name: string;
   );
 }
 
+// ── Material thumbnails shown inside user message bubbles ──
+type MaterialItem = { type: string; name: string; path: string };
+
+function MaterialThumbs({ materials }: { materials: MaterialItem[] }) {
+  const setPreviewUrl = useStore(s => s.setPreviewUrl);
+  const [viewImg, setViewImg] = useState<string | null>(null);
+
+  if (!materials.length) return null;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {materials.map((m, i) => {
+          const isImg = m.type === 'image';
+          const isVid = m.type === 'video';
+          const isAud = m.type === 'audio';
+
+          if (isImg) {
+            return (
+              <button
+                key={i}
+                onClick={() => setViewImg(m.path)}
+                className="w-16 h-16 rounded-lg overflow-hidden border border-white/20 hover:border-white/50 transition-all flex-shrink-0 bg-black/20"
+                title={m.name}
+              >
+                <img
+                  src={localFileUrlSync(m.path)}
+                  alt={m.name}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                />
+              </button>
+            );
+          }
+
+          if (isVid) {
+            return (
+              <button
+                key={i}
+                onClick={() => setPreviewUrl(localFileUrlSync(m.path))}
+                className="w-16 h-16 rounded-lg overflow-hidden border border-white/20 hover:border-white/50 transition-all flex-shrink-0 relative"
+                title={m.name}
+              >
+                <VideoThumb path={m.path} size={40} />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+                    <Play size={10} className="text-white ml-0.5" />
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          if (isAud) {
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/20 bg-white/10 text-white/80 text-xs flex-shrink-0"
+                title={m.name}
+              >
+                <span className="text-purple-300">♪</span>
+                <span className="max-w-[80px] truncate">{m.name}</span>
+              </div>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+
+      {/* Inline image lightbox */}
+      {viewImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+          onClick={() => setViewImg(null)}
+        >
+          <img
+            src={localFileUrlSync(viewImg)}
+            alt="preview"
+            className="max-w-[90vw] max-h-[85vh] rounded-xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
+            onClick={() => setViewImg(null)}
+          >
+            <X size={16} className="text-white" />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ═══════════════════════════════════════════
 //  Main ChatPanel
 // ═══════════════════════════════════════════
@@ -1208,7 +1353,7 @@ export function ChatPanel() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Structured task params
-  const [selectedModel, setSelectedModel] = useState('seedance_2.0_fast');
+  const [selectedModel, setSelectedModel] = useState('seedance2.0fast');
   const [selectedDuration, setSelectedDuration] = useState(5);
   const [selectedRatio, setSelectedRatio] = useState('9:16');
   const [showParams, setShowParams] = useState(false);
@@ -1424,15 +1569,16 @@ export function ChatPanel() {
     });
 
     const hasFiles = selectedFiles.length > 0;
-    const fileListDesc = hasFiles
-      ? [...materials.images, ...materials.videos, ...materials.audios].map(m => m.name).join('、')
-      : '';
+    const flatMaterials = hasFiles
+      ? [...materials.images, ...materials.videos, ...materials.audios]
+      : [];
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim() + (hasFiles ? `\n📎 ${fileListDesc}` : ''),
+      content: input.trim(),
       timestamp: new Date(),
+      ...(flatMaterials.length > 0 && { data: { materials: flatMaterials } }),
     };
 
     addMessage(userMsg);
@@ -1552,15 +1698,16 @@ export function ChatPanel() {
     });
 
     const hasFiles = selectedFiles.length > 0;
-    const fileListDesc = hasFiles
-      ? [...batchMaterials.images, ...batchMaterials.videos, ...batchMaterials.audios].map(m => m.name).join('、')
-      : '';
+    const flatBatchMaterials = hasFiles
+      ? [...batchMaterials.images, ...batchMaterials.videos, ...batchMaterials.audios]
+      : [];
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim() + (hasFiles ? `\n📎 ${fileListDesc}` : ''),
+      content: input.trim(),
       timestamp: new Date(),
+      ...(flatBatchMaterials.length > 0 && { data: { materials: flatBatchMaterials } }),
     };
     addMessage(userMsg);
     setLastInput(input.trim());
@@ -1622,12 +1769,18 @@ export function ChatPanel() {
     const filesToSubmit = [...selectedFiles];
     const hasFiles = filesToSubmit.length > 0 && useStructuredFlow;
 
-    const fileListDesc = hasFiles ? filesToSubmit.map(f => f.split('/').pop()).join('、') : '';
+    const directMaterials = hasFiles ? filesToSubmit.map(f => {
+      const filename = f.split('/').pop() || f;
+      const type = /\.(mp4|mov|avi|webm)$/i.test(f) ? 'video'
+        : /\.(mp3|wav|aac|m4a|flac)$/i.test(f) ? 'audio' : 'image';
+      return { type, name: filename, path: f };
+    }) : [];
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: prompt + (hasFiles ? `\n📎 ${fileListDesc}` : ''),
+      content: prompt,
       timestamp: new Date(),
+      ...(directMaterials.length > 0 && { data: { materials: directMaterials } }),
     };
     addMessage(userMsg);
     setInput('');
@@ -1709,8 +1862,13 @@ export function ChatPanel() {
     }
   }
 
-  async function handleConfirmTask() {
+  async function handleConfirmTask(editedPrompt?: string) {
     if (!pendingTask) return;
+
+    // Use inline-edited prompt if provided, otherwise fall back to AI rewrite
+    const effectiveTask = (editedPrompt && editedPrompt.trim())
+      ? { ...pendingTask, prompt: editedPrompt.trim() }
+      : pendingTask;
 
     // Bug 1 修复：先保存副本，再清空 state
     const filesToSubmit = [...selectedFiles];
@@ -1738,7 +1896,7 @@ export function ChatPanel() {
 
         setStatusText('📤 正在上传素材...');
         const result = await window.api.runStructuredTask({
-          prompt: pendingTask.prompt,
+          prompt: effectiveTask.prompt,
           materials,
           model: selectedModel,
           duration: selectedDuration,
@@ -1749,7 +1907,7 @@ export function ChatPanel() {
           addTask({
             id: 'task_' + Date.now(),
             submitId: (result as any).submitId,
-            prompt: pendingTask.prompt,
+            prompt: effectiveTask.prompt,
             type: 'video',
             status: 'generating',
             model: selectedModel,
@@ -1776,7 +1934,7 @@ export function ChatPanel() {
         }
       } else {
         const result = await window.api.executeTask({
-          prompt: pendingTask.prompt,
+          prompt: effectiveTask.prompt,
           model: selectedModel,
           duration: selectedDuration,
           aspectRatio: selectedRatio,
@@ -1786,7 +1944,7 @@ export function ChatPanel() {
           addTask({
             id: 'task_' + Date.now(),
             submitId: (result as any).submitId,
-            prompt: pendingTask.prompt,
+            prompt: effectiveTask.prompt,
             type: 'video',
             status: 'generating',
             model: selectedModel,
@@ -1828,21 +1986,19 @@ export function ChatPanel() {
     }
   }
 
-  function handleEditTask() {
-    addMessage({
-      id: Date.now().toString() + '_edit',
-      role: 'user',
-      content: '修改',
-      timestamp: new Date(),
+  function handleEditTask(rewriteMsgId?: string) {
+    // Remove the AI rewrite card and the user message that triggered it
+    setMessages(prev => {
+      if (!rewriteMsgId) return prev;
+      const idx = prev.findIndex(m => m.id === rewriteMsgId);
+      if (idx === -1) return prev;
+      // Also remove the user message just before the rewrite card
+      const start = idx > 0 && prev[idx - 1].role === 'user' ? idx - 1 : idx;
+      return prev.filter((_, i) => i < start || i > idx);
     });
     setPendingTask(null);
     setGuidedStep('logged-in-ready');
-    addMessage({
-      id: Date.now().toString() + '_retry',
-      role: 'assistant',
-      content: '好的,请重新描述你的需求',
-      timestamp: new Date(),
-    });
+    setInput(''); // clear, don't restore — user starts fresh
   }
 
   async function handleConfirmBatch(batchData: any) {
@@ -2371,10 +2527,13 @@ export function ChatPanel() {
                   onDownload={msg.type === 'result' && msg.data ? () => handleDownload(msg.data) : undefined}
                   onGuideClick={msg.type === 'guide-button' && guidedStep === 'welcome' ? handleReady : undefined}
                   onConfirm={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleConfirmTask : msg.type === 'batch-confirm' && msg.data ? () => handleConfirmBatch(msg.data) : undefined}
-                  onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleEditTask : undefined}
+                  onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? () => handleEditTask(msg.id) : undefined}
                   onRetry={msg.type === 'error' && lastPrompt ? handleRetry : undefined}
                   onLoginRetry={msg.type === 'login-error' ? handleLoginRetry : undefined}
                   task={msg.type === 'ai-rewrite' ? msg.data : undefined}
+                  selectedModel={selectedModel}
+                  selectedDuration={selectedDuration}
+                  selectedRatio={selectedRatio}
                   onDurationChange={setSelectedDuration}
                   onRatioChange={setSelectedRatio}
                   onModelChange={setSelectedModel}
@@ -2569,15 +2728,18 @@ function getProgressText(step: GuidedStep): string {
   return info.step > 0 ? `步骤 ${info.step}/5 ${info.label}` : '';}
 
 // ── Message Bubble ──
-function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRetry, onLoginRetry, task, onDurationChange, onRatioChange, onModelChange, onEditMaterial, setGuidedStep, setMessages, setTaskMode, onInputRestore }: {
+function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRetry, onLoginRetry, task, selectedModel, selectedDuration, selectedRatio, onDurationChange, onRatioChange, onModelChange, onEditMaterial, setGuidedStep, setMessages, setTaskMode, onInputRestore }: {
   msg: Message;
   onDownload?: () => void;
   onGuideClick?: () => void;
-  onConfirm?: () => void;
+  onConfirm?: (editedPrompt?: string) => void;
   onEdit?: () => void;
   onRetry?: () => void;
   onLoginRetry?: () => void;
   task?: any;
+  selectedModel?: string;
+  selectedDuration?: number;
+  selectedRatio?: string;
   onDurationChange?: (d: number) => void;
   onRatioChange?: (r: string) => void;
   onModelChange?: (m: string) => void;
@@ -2800,19 +2962,33 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
             </p>
             
             {/* 显示推断的素材列表 */}
-            <div className="mb-3">
-              <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">已上传素材</p>
-              <div className="flex flex-wrap gap-2">
-                {(data.materials || []).map((m: any, i: number) => (
-                  <MaterialTag
-                    key={i}
-                    material={m}
-                    index={i}
-                    onEdit={(newDesc) => onEditMaterial?.(i, newDesc)}
-                  />
-                ))}
+            {(data.materials || []).length > 0 && (
+              <div className="mb-3">
+                <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">已上传素材</p>
+                <div className="flex flex-wrap gap-2">
+                  {(data.materials || []).map((m: any, i: number) => (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      {m.type === 'image' && (
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-border bg-surface-3">
+                          <img src={localFileUrlSync(m.path)} alt={m.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      {m.type === 'video' && (
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-border">
+                          <VideoThumb path={m.path} size={32} />
+                        </div>
+                      )}
+                      {m.type === 'audio' && (
+                        <div className="w-14 h-14 rounded-lg border border-border bg-surface-3 flex items-center justify-center">
+                          <span className="text-purple-400 text-lg">♪</span>
+                        </div>
+                      )}
+                      <span className="text-[9px] text-text-muted max-w-[56px] truncate text-center">{m.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 追问问题 */}
             <div className="space-y-3">
@@ -2864,15 +3040,10 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
           task={task}
           onConfirm={onConfirm}
           onEdit={onEdit!}
-          onBack={() => {
-            setGuidedStep?.('logged-in-ready');
-            setMessages?.(prev => prev.filter(m => m.id !== msg.id));
-            onInputRestore?.();
-          }}
           hasFiles={(task as any).hasFiles}
-          selectedModel={(task as any).selectedModel}
-          selectedDuration={(task as any).selectedDuration}
-          selectedRatio={(task as any).selectedRatio}
+          selectedModel={selectedModel ?? (task as any).selectedModel}
+          selectedDuration={selectedDuration ?? (task as any).selectedDuration}
+          selectedRatio={selectedRatio ?? (task as any).selectedRatio}
           materials={(task as any).materials}
           onDurationChange={onDurationChange}
           onRatioChange={onRatioChange}
@@ -2895,7 +3066,14 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
             : 'msg-ai text-text-primary'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+        {/* Material thumbnails for user messages */}
+        {isUser && msg.data?.materials?.length > 0 && (
+          <MaterialThumbs materials={msg.data.materials} />
+        )}
+
+        {msg.content && (
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+        )}
 
         {/* Error retry button */}
         {msg.type === 'error' && onRetry && (
