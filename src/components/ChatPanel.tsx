@@ -604,104 +604,147 @@ function VideoThumb({ path, size = 48, onClick }: { path: string; size?: number;
   );
 }
 
-// ── Attachment Stack (collapsed overlap → expanded strip) ──
-function AttachmentStack({ files, onView, onRemove }: {
+// ── Attachment Stack: card-fan collapse/expand on hover ──
+function AttachmentStack({ files, onView, onRemove, onAdd, canAdd }: {
   files: string[];
   onView: (path: string) => void;
   onRemove: (index: number) => void;
+  onAdd: () => void;
+  canAdd: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const THUMB = 44;
-  const OVERLAP = 14;
-  const SHOW = 4;
+  const [hovered, setHovered] = useState(false);
+
+  const W = 64;   // card width
+  const H = 80;   // card height
+  const SHIFT = 10;  // per-card horizontal shift in stack
+  const GAP = 8;     // gap between cards when expanded
+  // Slight rotations for each card in the stack (indexed by position)
+  const ROTS = [-5, 2.5, -3, 4, -2];
 
   if (files.length === 0) return null;
 
-  const renderThumb = (file: string, i: number, stacked = false) => {
-    const isImg = /\.(jpg|jpeg|png|webp)$/i.test(file);
-    const isVid = /\.(mp4|mov)$/i.test(file);
-    const name = file.split('/').pop() || '';
-    return (
-      <div
-        key={`${file}-${i}`}
-        className="relative group flex-shrink-0"
-        style={{ width: THUMB, height: THUMB, ...(stacked ? { marginLeft: i === 0 ? 0 : -OVERLAP, zIndex: SHOW - i } : {}) }}
-      >
-        <div
-          onClick={() => stacked ? setExpanded(true) : onView(file)}
-          className="w-full h-full rounded-lg overflow-hidden border-2 border-[oklch(0.22_0.01_250)] cursor-pointer hover:border-brand/50 transition-colors"
-        >
-          {isImg && (
-            <img
-              src={`local-file://${file}`}
-              className="w-full h-full object-cover"
-              alt=""
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          )}
-          {isVid && <VideoThumb path={file} size={THUMB} />}
-          {!isImg && !isVid && (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-surface-1 gap-0.5">
-              <span className="text-base">🎵</span>
-              <span className="text-[7px] text-text-muted truncate px-1 w-full text-center">{name.replace(/\.[^.]+$/, '')}</span>
-            </div>
-          )}
-        </div>
-        {!stacked && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(i); }}
-            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-error flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow"
-          >
-            <X size={7} className="text-white" />
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  const extra = Math.max(0, files.length - SHOW);
-
-  if (!expanded) {
-    return (
-      <div
-        className="flex items-center cursor-pointer select-none"
-        style={{ height: THUMB }}
-        onClick={() => setExpanded(true)}
-        title="点击展开查看全部素材"
-      >
-        <div className="flex items-center relative">
-          {files.slice(0, SHOW).map((f, i) => renderThumb(f, i, true))}
-          {extra > 0 && (
-            <div
-              className="flex-shrink-0 flex items-center justify-center rounded-lg bg-surface-2 border-2 border-[oklch(0.22_0.01_250)] text-[10px] font-semibold text-text-secondary"
-              style={{ width: THUMB, height: THUMB, marginLeft: -OVERLAP, zIndex: 0 }}
-            >
-              +{extra}
-            </div>
-          )}
-        </div>
-        <div className="ml-2 flex flex-col justify-center">
-          <span className="text-[10px] text-text-muted leading-tight">{files.length} 个素材</span>
-          <span className="text-[9px] text-text-disabled leading-tight flex items-center gap-0.5">
-            展开 <ChevronDown size={8} />
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // Collapsed container width: front card + peeking edges + circle "+"
+  const collapsedW = W + Math.min(files.length - 1, 4) * SHIFT + 36;
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1.5 overflow-x-auto" style={{ maxWidth: 320, paddingBottom: 1 }}>
-        {files.map((f, i) => renderThumb(f, i, false))}
-      </div>
-      <button
-        onClick={() => setExpanded(false)}
-        className="flex-shrink-0 ml-1 px-2 h-6 rounded-full bg-surface-1 border border-border text-[9px] text-text-muted hover:text-text-primary flex items-center gap-0.5 transition-colors"
-        title="收起"
-      >
-        <ChevronDown size={8} className="rotate-180" /> 收起
-      </button>
+    <div
+      className="relative flex-shrink-0"
+      style={{ width: collapsedW, height: H + 20, overflow: 'visible' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {files.map((file, i) => {
+        const isImg = /\.(jpg|jpeg|png|webp)$/i.test(file);
+        const isVid = /\.(mp4|mov)$/i.test(file);
+        const isAud = /\.(mp3|wav|aac|m4a)$/i.test(file);
+        const name = (file.split('/').pop() || '').replace(/\.[^.]+$/, '');
+
+        // Stack: last file is front (highest z, rightmost)
+        const stackLeft = i * SHIFT;
+        const expandLeft = i * (W + GAP);
+        const rot = hovered ? 0 : ROTS[i % ROTS.length];
+        const zIdx = hovered ? files.length - i : i + 1;
+
+        return (
+          <div
+            key={`${file}-${i}`}
+            className="absolute group/card"
+            style={{
+              top: 16, // space above for tooltip
+              left: hovered ? expandLeft : stackLeft,
+              width: W,
+              height: H,
+              zIndex: zIdx,
+              transform: `rotate(${rot}deg)`,
+              transformOrigin: 'bottom center',
+              transition: 'left 0.26s cubic-bezier(0.34,1.4,0.64,1), transform 0.26s cubic-bezier(0.34,1.4,0.64,1)',
+            }}
+          >
+            {/* Filename tooltip */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 pointer-events-none z-50"
+                 style={{ opacity: hovered ? undefined : 0, transition: 'opacity 0.15s' }}>
+              <div className="opacity-0 group-hover/card:opacity-100 transition-opacity duration-150">
+                <span className="block text-[10px] bg-[oklch(0.14_0.01_250)] text-white px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap max-w-[90px] truncate border border-[oklch(0.28_0.01_250)]">
+                  {name}
+                </span>
+              </div>
+            </div>
+
+            {/* Card face */}
+            <div
+              className="w-full h-full rounded-xl overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.5)] cursor-pointer"
+              onClick={() => hovered && onView(file)}
+            >
+              {isImg && (
+                <img src={`local-file://${file}`} className="w-full h-full object-cover" alt=""
+                     onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} />
+              )}
+              {isVid && <VideoThumb path={file} size={W} />}
+              {isAud && (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5"
+                     style={{ background: 'oklch(0.38 0.10 270 / 0.6)', border: '1px solid oklch(0.5 0.12 270 / 0.4)' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                       style={{ background: 'oklch(0.50 0.12 270 / 0.35)' }}>
+                    <span className="text-lg">🎵</span>
+                  </div>
+                  <span className="text-[9px] text-white/80 font-medium px-1.5 text-center leading-tight w-full truncate">{name}</span>
+                </div>
+              )}
+            </div>
+
+            {/* × delete button */}
+            <div style={{ opacity: hovered ? undefined : 0, pointerEvents: hovered ? undefined : 'none' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove(i); }}
+                className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-[oklch(0.14_0.01_250)] border border-[oklch(0.30_0.01_250)] text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity shadow-md z-30"
+              >
+                <X size={9} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* "+" button — circle when collapsed, card when expanded */}
+      {canAdd && (
+        <div
+          style={{
+            position: 'absolute',
+            top: hovered ? 16 : undefined,
+            bottom: hovered ? undefined : 0,
+            left: hovered
+              ? files.length * (W + GAP)
+              : Math.min(files.length - 1, 4) * SHIFT + W * 0.55,
+            transition: 'left 0.26s cubic-bezier(0.34,1.4,0.64,1)',
+            zIndex: 20,
+          }}
+        >
+          {hovered ? (
+            <button
+              onClick={onAdd}
+              className="flex flex-col items-center justify-center rounded-xl transition-colors"
+              style={{
+                width: W, height: H,
+                border: '2px dashed oklch(0.32 0.01 250)',
+                color: 'oklch(0.55 0.01 250)',
+              }}
+              onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.65 0.18 250)'; (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.65 0.18 250)'; }}
+              onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'oklch(0.32 0.01 250)'; (e.currentTarget as HTMLButtonElement).style.color = 'oklch(0.55 0.01 250)'; }}
+            >
+              <Plus size={18} />
+              <span className="text-[9px] mt-1.5 leading-tight text-center">参考内容</span>
+            </button>
+          ) : (
+            <button
+              onClick={onAdd}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-[0_2px_10px_rgba(0,0,0,0.4)]"
+              style={{ background: 'rgba(255,255,255,0.92)' }}
+            >
+              <Plus size={16} style={{ color: 'oklch(0.18 0.01 250)' }} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2020,6 +2063,10 @@ export function ChatPanel() {
   }
 
   const canInput = (guidedStep === 'logged-in-ready' || guidedStep === 'task-done' || guidedStep === 'batch-collecting') && !isAiThinking;
+  const _imgCount = selectedFiles.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f)).length;
+  const _vidCount = selectedFiles.filter(f => /\.(mp4|mov)$/i.test(f)).length;
+  const _audCount = selectedFiles.filter(f => /\.(mp3|wav|aac|m4a)$/i.test(f)).length;
+  const canAddFiles = canInput && _imgCount < 9 && _vidCount < 3 && _audCount < 3;
   const showInputArea = ['logged-in-ready', 'task-drafting', 'task-confirming', 'task-executing', 'task-done', 'batch-collecting'].includes(guidedStep);
 
   return (
@@ -2161,30 +2208,37 @@ export function ChatPanel() {
               : 'border-[oklch(0.38_0.01_250)] bg-surface-3 hover:border-[oklch(0.44_0.01_250)]'
           }`}>
 
-            {/* Attachment strip — only shown when files are present */}
-            {selectedFiles.length > 0 && (
-              <div className="px-3 pt-2.5 pb-1">
-                <AttachmentStack
-                  files={selectedFiles}
-                  onView={setViewFile}
-                  onRemove={removeFile}
-                />
-              </div>
-            )}
+            {/* Main row: attachment stack (left) + textarea (right) */}
+            <div className="flex gap-0 p-3 pb-2" style={{ overflow: 'visible' }}>
 
-            {/* File validation errors */}
-            {fileErrors.length > 0 && (
-              <div className="px-3 pt-1">
-                {fileErrors.map((err, i) => (
-                  <div key={i} className="text-[10px] text-error flex items-center gap-1 leading-tight mb-0.5">
-                    <AlertTriangle size={9} /> {err}
-                  </div>
-                ))}
-              </div>
-            )}
+              {/* Attachment stack — LEFT side, only when files present */}
+              {selectedFiles.length > 0 && (
+                <div className="flex-shrink-0 mr-3 self-center" style={{ overflow: 'visible' }}>
+                  <AttachmentStack
+                    files={selectedFiles}
+                    onView={setViewFile}
+                    onRemove={removeFile}
+                    onAdd={() => setShowRefMenu(v => !v)}
+                    canAdd={canAddFiles}
+                  />
+                  {/* Dropdown menu for add */}
+                  {showRefMenu && (
+                    <div className="absolute mt-1 bg-[oklch(0.20_0.01_250)] border border-border rounded-lg shadow-xl z-50 py-1 min-w-[140px]"
+                         style={{ top: 'auto', left: 'auto' }}>
+                      <button onClick={() => { handleSelectFiles(); setShowRefMenu(false); }}
+                        className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2">
+                        <Upload size={11} /> 从本地上传
+                      </button>
+                      <button onClick={() => { setShowMaterialLib(true); setShowRefMenu(false); }}
+                        className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2">
+                        <FolderOpen size={11} /> 从素材库选择
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Textarea */}
-            <div className="px-3 pt-2 pb-1">
+              {/* Textarea */}
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -2194,50 +2248,48 @@ export function ChatPanel() {
                 onBlur={() => { setInputFocused(false); setShowRefMenu(false); }}
                 placeholder={canInput ? '描述你想生成的视频...' : '请先完成当前步骤...'}
                 rows={3}
-                className="w-full bg-transparent border-none outline-none resize-none text-sm text-text-primary placeholder-text-secondary leading-relaxed"
+                className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-text-primary placeholder-text-secondary leading-relaxed"
                 style={{ minHeight: '68px', maxHeight: '160px' }}
                 disabled={!canInput}
               />
             </div>
 
+            {/* File validation errors */}
+            {fileErrors.length > 0 && (
+              <div className="px-3 pb-1">
+                {fileErrors.map((err, i) => (
+                  <div key={i} className="text-[10px] text-error flex items-center gap-1 leading-tight mb-0.5">
+                    <AlertTriangle size={9} /> {err}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Bottom toolbar */}
             <div className="flex items-center gap-1.5 px-3 py-2 border-t border-[oklch(0.22_0.01_250)]">
-              {/* Add files button */}
-              {(() => {
-                const imgCount = selectedFiles.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f)).length;
-                const vidCount = selectedFiles.filter(f => /\.(mp4|mov)$/i.test(f)).length;
-                const audCount = selectedFiles.filter(f => /\.(mp3|wav|aac|m4a)$/i.test(f)).length;
-                const canAdd = canInput && imgCount < 9 && vidCount < 3 && audCount < 3;
-                return (
-                  <div className="relative">
-                    <button
-                      onClick={() => canAdd && setShowRefMenu(v => !v)}
-                      disabled={!canAdd}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border-subtle hover:border-border bg-surface-1 hover:bg-surface-2 text-[11px] text-text-secondary hover:text-text-primary transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={selectedFiles.length === 0 ? '添加参考素材' : '继续添加'}
-                    >
-                      <Plus size={11} />
-                      {selectedFiles.length === 0 ? '参考素材' : '继续添加'}
+              {/* Add files button (only when no files yet, or always for quick add) */}
+              <div className="relative">
+                <button
+                  onClick={() => canAddFiles && setShowRefMenu(v => !v)}
+                  disabled={!canAddFiles}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border-subtle hover:border-border bg-surface-1 hover:bg-surface-2 text-[11px] text-text-secondary hover:text-text-primary transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Plus size={11} />
+                  {selectedFiles.length === 0 ? '参考素材' : '继续添加'}
+                </button>
+                {showRefMenu && (
+                  <div className="absolute left-0 bottom-full mb-1.5 bg-[oklch(0.20_0.01_250)] border border-border rounded-lg shadow-xl z-30 py-1 min-w-[140px]">
+                    <button onClick={() => { handleSelectFiles(); setShowRefMenu(false); }}
+                      className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2">
+                      <Upload size={11} /> 从本地上传
                     </button>
-                    {showRefMenu && (
-                      <div className="absolute left-0 bottom-full mb-1.5 bg-[oklch(0.20_0.01_250)] border border-border rounded-lg shadow-xl z-30 py-1 min-w-[140px]">
-                        <button
-                          onClick={() => { handleSelectFiles(); setShowRefMenu(false); }}
-                          className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2"
-                        >
-                          <Upload size={11} /> 从本地上传
-                        </button>
-                        <button
-                          onClick={() => { setShowMaterialLib(true); setShowRefMenu(false); }}
-                          className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2"
-                        >
-                          <FolderOpen size={11} /> 从素材库选择
-                        </button>
-                      </div>
-                    )}
+                    <button onClick={() => { setShowMaterialLib(true); setShowRefMenu(false); }}
+                      className="w-full px-3 py-1.5 text-xs text-left text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors flex items-center gap-2">
+                      <FolderOpen size={11} /> 从素材库选择
+                    </button>
                   </div>
-                );
-              })()}
+                )}
+              </div>
 
               <PillSelect
                 label={selectedModel === 'seedance_2.0_fast' ? 'Seedance 2.0 Fast' : 'Seedance 2.0'}
