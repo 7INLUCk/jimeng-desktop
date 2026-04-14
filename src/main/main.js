@@ -743,14 +743,11 @@ function registerIpcHandlers() {
   // ---- 选择文件 ----
   ipcMain.handle('file:select', async () => {
     if (!mainWindow) return { files: [] };
+    // No dialog-level filter — macOS UTI mapping for audio extensions is
+    // unreliable and greys out valid files (wav/aac/m4a). Format + size
+    // validation is handled entirely in the renderer (handleSelectFiles).
     const result = await dialog.showOpenDialog(mainWindow, {
       title: '选择素材文件',
-      filters: [
-        { name: '所有支持格式', extensions: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'mp3', 'wav', 'aac', 'm4a'] },
-        { name: '图片 (≤30MB)', extensions: ['jpg', 'jpeg', 'png', 'webp'] },
-        { name: '视频 (≤50MB)', extensions: ['mp4', 'mov'] },
-        { name: '音频 (≤10MB)', extensions: ['mp3', 'wav', 'aac', 'm4a'] },
-      ],
       properties: ['openFile', 'multiSelections'],
     });
     if (result.canceled) return { files: [] };
