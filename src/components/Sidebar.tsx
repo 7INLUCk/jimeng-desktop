@@ -44,15 +44,17 @@ export function Sidebar() {
             <button
               key={item.id}
               onClick={() => setActivePanel(item.id)}
-              className="relative w-full h-9 flex items-center justify-center transition-colors duration-150 group"
+              className="relative w-full h-12 flex flex-col items-center justify-center gap-0.5 transition-colors duration-150 group"
               style={{
                 borderRadius: 'var(--radius-md)',
                 color: isActive ? 'var(--color-brand)' : 'var(--color-text-muted)',
                 background: isActive ? 'var(--color-surface-2)' : 'transparent'
               }}
-              title={item.label}
             >
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
+              <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
+              <span style={{ fontSize: '10px', fontWeight: isActive ? 500 : 400, lineHeight: 1 }}>
+                {item.label}
+              </span>
               
               {/* Hover background */}
               {!isActive && (
@@ -88,14 +90,14 @@ export function Sidebar() {
       <div className="mt-auto flex flex-col items-center gap-0.5 w-full px-1.5">
         <button
           onClick={() => window.api.openDownloadDir()}
-          className="w-full h-9 flex items-center justify-center transition-colors duration-150 group"
+          className="w-full h-12 flex flex-col items-center justify-center gap-0.5 transition-colors duration-150 group"
           style={{
             borderRadius: 'var(--radius-md)',
             color: 'var(--color-text-muted)'
           }}
-          title="打开下载目录"
         >
-          <Download size={18} strokeWidth={1.8} />
+          <Download size={16} strokeWidth={1.8} />
+          <span style={{ fontSize: '10px', fontWeight: 400, lineHeight: 1 }}>下载</span>
           
           {/* Hover background */}
           <span 
