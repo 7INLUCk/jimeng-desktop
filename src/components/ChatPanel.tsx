@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, Layers, FileStack, Sparkles, Globe, Type, Video, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, Play, XCircle, Plus } from 'lucide-react';
+import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, Layers, FileStack, Sparkles, Globe, Type, Video, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, Play, XCircle, Plus, Zap, Clock, RectangleHorizontal } from 'lucide-react';
 import { useStore, type Message, type GuidedStep, type TaskMaterial, type TaskMode, type BatchTaskItem } from '../store';
 import { MaterialLibrary } from './MaterialLibrary';
 import { PromptTemplates } from './PromptTemplates';
@@ -501,8 +501,9 @@ function ProgressMessage({ msg }: { msg: Message }) {
 }
 
 // ── Pill Select Dropdown ──
-function PillSelect({ label, options, value, onChange, disabled }: {
+function PillSelect({ label, icon, options, value, onChange, disabled }: {
   label: string;
+  icon?: React.ReactNode;
   options: { value: string; label: string }[];
   value: string;
   onChange: (v: string) => void;
@@ -527,6 +528,7 @@ function PillSelect({ label, options, value, onChange, disabled }: {
         disabled={disabled}
         className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border-subtle hover:border-border bg-surface-1 hover:bg-surface-2 text-[11px] text-text-secondary hover:text-text-primary transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       >
+        {icon && <span className="opacity-60">{icon}</span>}
         {label}
         <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -547,6 +549,16 @@ function PillSelect({ label, options, value, onChange, disabled }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Static info pill (no dropdown) ──
+function PillTag({ label, icon }: { label: string; icon?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border-subtle bg-surface-1 text-[11px] text-text-disabled select-none">
+      {icon && <span className="opacity-50">{icon}</span>}
+      {label}
     </div>
   );
 }
@@ -2291,7 +2303,15 @@ export function ChatPanel() {
 
             {/* Bottom toolbar */}
             <div className="flex items-center gap-1.5 px-3 py-2 border-t border-[oklch(0.22_0.01_250)]">
+              {/* Static info pills */}
+              <PillTag label="视频生成" icon={<Video size={10} />} />
+              <PillTag label="全能参考" icon={<Layers size={10} />} />
+
+              <div className="w-px h-3.5 bg-border-subtle mx-0.5 shrink-0" />
+
+              {/* Interactive param pills */}
               <PillSelect
+                icon={<Zap size={10} />}
                 label={selectedModel === 'seedance_2.0_fast' ? 'Seedance 2.0 Fast' : 'Seedance 2.0'}
                 options={[
                   { value: 'seedance_2.0_fast', label: 'Seedance 2.0 Fast' },
@@ -2302,6 +2322,7 @@ export function ChatPanel() {
                 disabled={!canInput}
               />
               <PillSelect
+                icon={<RectangleHorizontal size={10} />}
                 label={selectedRatio}
                 options={['9:16','16:9','1:1','4:3','3:4','21:9'].map(r => ({ value: r, label: r }))}
                 value={selectedRatio}
@@ -2309,6 +2330,7 @@ export function ChatPanel() {
                 disabled={!canInput}
               />
               <PillSelect
+                icon={<Clock size={10} />}
                 label={`${selectedDuration}s`}
                 options={[4,5,6,8,10,12,15].map(d => ({ value: String(d), label: `${d}s` }))}
                 value={String(selectedDuration)}
