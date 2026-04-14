@@ -1291,7 +1291,7 @@ export function ChatPanel() {
         addMessage({
           id: Date.now().toString() + '_ready',
           role: 'assistant',
-          content: '✅ 就绪，可以开始创作了！\n\n直接描述你想要的视频效果，AI 会优化提示词后生成。\n\n💡 输入框左下角可以切换模式：批量生成多个视频，或手动模式直接写提示词。',
+          content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成 — 描述想法，AI 帮你优化成提示词\n📋 批量规划 — 描述目标，AI 自动拆解成多个任务\n⚡ 专业模式 — 自己写好提示词，直接发送\n\n默认是智能生成，描述你想生成的视频效果就行。',
           timestamp: new Date(),
         });
         return;
@@ -1367,7 +1367,7 @@ export function ChatPanel() {
           addMessage({
             id: Date.now().toString() + '_login_ok',
             role: 'assistant',
-            content: '✅ 登录成功，可以开始创作了！\n\n直接描述你想要的视频效果，AI 会优化提示词后生成。\n\n💡 输入框左下角可以切换模式：批量生成多个视频，或手动模式直接写提示词。',
+            content: '✅ 登录成功！左下角可以切换三种模式：\n✨ 智能生成 — 描述想法，AI 帮你优化成提示词\n📋 批量规划 — 描述目标，AI 自动拆解成多个任务\n⚡ 专业模式 — 自己写好提示词，直接发送\n\n默认是智能生成，描述你想生成的视频效果就行。',
             timestamp: new Date(),
           });
         }
@@ -1888,7 +1888,7 @@ export function ChatPanel() {
         addMessage({
           id: Date.now().toString() + '_login_ok',
           role: 'assistant',
-          content: '✅ 登录成功，可以开始创作了！\n\n直接描述你想要的视频效果，AI 会优化提示词后生成。\n\n💡 输入框左下角可以切换模式：批量生成多个视频，或手动模式直接写提示词。',
+          content: '✅ 登录成功！左下角可以切换三种模式：\n✨ 智能生成 — 描述想法，AI 帮你优化成提示词\n📋 批量规划 — 描述目标，AI 自动拆解成多个任务\n⚡ 专业模式 — 自己写好提示词，直接发送\n\n默认是智能生成，描述你想生成的视频效果就行。',
           timestamp: new Date(),
         });
         return;
@@ -2291,17 +2291,16 @@ export function ChatPanel() {
             {/* Main row: attachment stack (only when files present) + textarea */}
             <div className="flex gap-0 p-3 pb-2" style={{ overflow: 'visible' }}>
 
-              {selectedFiles.length > 0 && (
-                <div className="flex-shrink-0 mr-3 self-center" style={{ overflow: 'visible' }}>
-                  <AttachmentStack
-                    files={selectedFiles}
-                    onView={setViewFile}
-                    onRemove={removeFile}
-                    onAdd={handleSelectFiles}
-                    canAdd={canAddFiles}
-                  />
-                </div>
-              )}
+              {/* Attachment stack — always on LEFT */}
+              <div className="flex-shrink-0 mr-3 self-center" style={{ overflow: 'visible' }}>
+                <AttachmentStack
+                  files={selectedFiles}
+                  onView={setViewFile}
+                  onRemove={removeFile}
+                  onAdd={handleSelectFiles}
+                  canAdd={canAddFiles}
+                />
+              </div>
 
               {/* Textarea */}
               <textarea
@@ -2333,39 +2332,6 @@ export function ChatPanel() {
               </div>
             )}
 
-            {/* Advanced params row (collapsible) */}
-            {showAdvanced && (
-              <div className="flex items-center gap-1.5 px-3 pt-2 flex-wrap border-t border-border-subtle">
-                <PillSelect
-                  icon={<Zap size={10} />}
-                  label={selectedModel === 'seedance_2.0_fast' ? 'Fast' : '标准'}
-                  options={[
-                    { value: 'seedance_2.0_fast', label: 'Seedance 2.0 Fast' },
-                    { value: 'seedance_2.0', label: 'Seedance 2.0' },
-                  ]}
-                  value={selectedModel}
-                  onChange={setSelectedModel}
-                  disabled={!canInput}
-                />
-                <PillSelect
-                  icon={<RectangleHorizontal size={10} />}
-                  label={selectedRatio}
-                  options={['9:16','16:9','1:1','4:3','3:4','21:9'].map(r => ({ value: r, label: r }))}
-                  value={selectedRatio}
-                  onChange={setSelectedRatio}
-                  disabled={!canInput}
-                />
-                <PillSelect
-                  icon={<Clock size={10} />}
-                  label={`${selectedDuration}s`}
-                  options={[4,5,6,8,10,12,15].map(d => ({ value: String(d), label: `${d}s` }))}
-                  value={String(selectedDuration)}
-                  onChange={(v) => setSelectedDuration(Number(v))}
-                  disabled={!canInput}
-                />
-              </div>
-            )}
-
             {/* Bottom toolbar */}
             <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border-subtle">
               <PillSelect
@@ -2380,35 +2346,36 @@ export function ChatPanel() {
                 onChange={(v) => setSendMode(v as SendMode)}
                 disabled={!canInput}
               />
-
-              {/* Params summary toggle */}
-              <button
-                onClick={() => setShowAdvanced(v => !v)}
+              <PillSelect
+                icon={<Zap size={10} />}
+                label={selectedModel === 'seedance_2.0_fast' ? 'Seedance 2.0 Fast' : 'Seedance 2.0'}
+                options={[
+                  { value: 'seedance_2.0_fast', label: 'Seedance 2.0 Fast' },
+                  { value: 'seedance_2.0', label: 'Seedance 2.0' },
+                ]}
+                value={selectedModel}
+                onChange={setSelectedModel}
                 disabled={!canInput}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] transition-colors disabled:opacity-40 ${
-                  showAdvanced
-                    ? 'bg-brand/15 text-brand'
-                    : 'bg-surface-3 text-text-muted hover:text-text-secondary'
-                }`}
-                title="生成参数"
-              >
-                <Settings2 size={10} />
-                <span className="font-mono">{selectedModel === 'seedance_2.0_fast' ? 'Fast' : '标准'} · {selectedRatio} · {selectedDuration}s</span>
-              </button>
+              />
+              <PillTag label="全能参考" icon={<Layers size={10} />} />
+              <PillSelect
+                icon={<RectangleHorizontal size={10} />}
+                label={selectedRatio}
+                options={['9:16','16:9','1:1','4:3','3:4','21:9'].map(r => ({ value: r, label: r }))}
+                value={selectedRatio}
+                onChange={setSelectedRatio}
+                disabled={!canInput}
+              />
+              <PillSelect
+                icon={<Clock size={10} />}
+                label={`${selectedDuration}s`}
+                options={[4,5,6,8,10,12,15].map(d => ({ value: String(d), label: `${d}s` }))}
+                value={String(selectedDuration)}
+                onChange={(v) => setSelectedDuration(Number(v))}
+                disabled={!canInput}
+              />
 
               <div className="flex-1" />
-
-              {/* Attach files (when no files selected) */}
-              {selectedFiles.length === 0 && (
-                <button
-                  onClick={handleSelectFiles}
-                  disabled={!canInput || !canAddFiles}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="添加素材（图片/视频/音频）"
-                >
-                  <Paperclip size={15} />
-                </button>
-              )}
 
               {/* Send button */}
               <button
