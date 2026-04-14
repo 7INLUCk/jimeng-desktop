@@ -1101,33 +1101,9 @@ export function ChatPanel() {
       // 启动登录
       const loginResult = await window.api.authLogin();
 
-      // 登录成功(无论是复用还是扫码)
+      // 登录成功 —— onProgress('login-success') 已经处理了 UI，此处无需重复
       if (loginResult.success) {
-        setMessages((prev) => prev.filter(m => m.type !== 'qr-code'));
-        addMessage({
-          id: Date.now().toString() + '_login_ok',
-          role: 'assistant',
-          content: '✅ 登录成功!',
-          timestamp: new Date(),
-        });
-        useStore.getState().setIsLoggedIn(true);
-        setGuidedStep('logged-in-ready');
-
-        // 初始化模式
-        try {
-          const modeResult = await window.api.initMode();
-          if (modeResult.success) {
-            addMessage({
-              id: Date.now().toString() + '_mode_ok',
-              role: 'assistant',
-              content: '✅ 视频创作模式已就绪!请描述你想生成的视频。',
-              timestamp: new Date(),
-              type: 'mode-select',
-            });
-          }
-        } catch (e) {
-          console.error('模式初始化失败:', e);
-        }
+        // onProgress 已设置 isLoggedIn / guidedStep / 成功消息，不再重复
       } else {
         // login-failed 进度事件已统一处理所有失败（含超时），此处只重置状态
         setGuidedStep('welcome');
@@ -1161,29 +1137,7 @@ export function ChatPanel() {
     const loginResult = await window.api.authLogin();
 
     if (loginResult.success) {
-      setMessages((prev) => prev.filter(m => m.type !== 'qr-code'));
-      addMessage({
-        id: Date.now().toString() + '_login_ok',
-        role: 'assistant',
-        content: '✅ 登录成功!',
-        timestamp: new Date(),
-      });
-      useStore.getState().setIsLoggedIn(true);
-      setGuidedStep('logged-in-ready');
-      try {
-        const modeResult = await window.api.initMode();
-        if (modeResult.success) {
-          addMessage({
-            id: Date.now().toString() + '_mode_ok',
-            role: 'assistant',
-            content: '✅ 视频创作模式已就绪!请描述你想生成的视频。',
-            timestamp: new Date(),
-            type: 'mode-select',
-          });
-        }
-      } catch (e) {
-        console.error('模式初始化失败:', e);
-      }
+      // onProgress('login-success') 已处理 UI，此处无需重复
     } else {
       // login-failed 进度事件已统一处理所有失败（含超时），此处只重置状态
       setGuidedStep('welcome');
@@ -2154,6 +2108,7 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
             className="w-48 h-48 mx-auto border border-border rounded-md"
           />
           <p className="text-xs text-text-muted mt-2 text-center">打开抖音 APP 扫码授权</p>
+          <p className="text-[11px] text-text-disabled mt-1 text-center">扫码后请稍候 3–10 秒，等待服务器验证</p>
 
           {/* 取消/切换按钮 */}
           <div className="flex items-center justify-center gap-3 mt-3">

@@ -402,12 +402,12 @@ function registerIpcHandlers() {
   ipcMain.handle('auth:login', async () => {
     console.log('[登录] 开始 headless 登录...');
     
-    // 先清理可能残留的 CLI 进程（避免端口冲突）
-    const cleanup = spawn('pkill', ['-f', 'dreamina login'], { stdio: 'ignore' });
-    cleanup.on('close', () => {
-      console.log('[登录] 已清理旧 CLI 进程');
-    });
-    
+    // 清理残留的 CLI 进程和孤立的 chromedp headless Chrome 进程
+    // chromedp-runner 进程在登录失败/超时时不会自动退出，会持续占用 ~98% CPU
+    spawn('pkill', ['-f', 'dreamina login'], { stdio: 'ignore' });
+    spawn('pkill', ['-f', 'chromedp-runner'], { stdio: 'ignore' });
+    console.log('[登录] 已清理旧 CLI 进程和孤立 chromedp 进程');
+
     await new Promise(r => setTimeout(r, 300)); // 等 300ms 确保清理完成
     
     sendToRenderer('task:progress', { event: 'login-start', data: { message: '正在启动登录...' } });
