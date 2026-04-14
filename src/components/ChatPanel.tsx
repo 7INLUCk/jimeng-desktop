@@ -2048,6 +2048,21 @@ export function ChatPanel() {
           content: `📦 批量任务完成!\n✅ ${succeeded} 成功 / ❌ ${failed} 失败 / 共 ${total} 个任务`,
           timestamp: new Date(),
         });
+      } else if (data.event === 'batch-task-update') {
+        const task = data.data;
+        if (!task || task.index == null) return;
+        const batchTasks = useStore.getState().batchTasks;
+        const updated = batchTasks.map((bt, idx) =>
+          idx === task.index - 1
+            ? { ...bt, status: task.status, outputFile: task.outputFile ?? bt.outputFile, error: task.error ?? bt.error }
+            : bt
+        );
+        useStore.getState().setBatchTasks(updated);
+        const completedCount = updated.filter(t => t.status === 'completed' || t.status === 'downloaded').length;
+        const batchInfo = useStore.getState().batchInfo;
+        if (batchInfo) {
+          useStore.getState().setBatchInfo({ ...batchInfo, completedTasks: completedCount });
+        }
       }
     });
     return () => removeProgress();

@@ -9,25 +9,6 @@ export interface Message {
   data?: any;
 }
 
-export interface ResultItem {
-  id: string;
-  url: string;
-  prompt: string;
-  generateType: 'video' | 'image';
-  thumbUrl: string;
-  format: string;
-  timestamp: number;
-  downloaded?: boolean;
-  filepath?: string;
-}
-
-export interface QueueTask {
-  id: string;
-  prompt: string;
-  files: string[];
-  status: 'pending' | 'processing' | 'submitted' | 'failed';
-  error?: string;
-}
 
 export interface Settings {
   downloadDir: string;
@@ -212,35 +193,22 @@ interface AppState {
   isSubmitting: boolean;
   statusText: string;
 
-  // 结果
-  results: ResultItem[];
-
-  // 队列
-  queueTasks: QueueTask[];
-  isProcessingQueue: boolean;
 
   // 设置
   settings: Settings;
   settingsLoaded: boolean;
 
   // UI 状态
-  activePanel: 'chat' | 'queue' | 'settings' | 'history' | 'results';
+  activePanel: 'chat' | 'queue' | 'settings' | 'history';
 
   // 发送模式 & 批量任务状态
   sendMode: SendMode;
   taskMode: TaskMode;
   batchTasks: BatchTaskItem[];
   batchInfo: BatchInfo | null;
-  batchCollectingData: {
-    description: string;
-    tasks: BatchTaskItem[];
-    currentQuestion: string;
-    answeredQuestions: string[];
-  } | null;
 
   // 任务管理
   tasks: TaskRecord[];
-  activeTaskFilter: TaskFilter;
   highlightedTaskId: string | null;
 
   // 作品历史
@@ -269,19 +237,13 @@ interface AppState {
   setMessages: (updater: (prev: Message[]) => Message[]) => void;
   setSubmitting: (submitting: boolean) => void;
   setStatusText: (text: string) => void;
-  setResults: (results: ResultItem[]) => void;
-  addResult: (result: ResultItem) => void;
-  markDownloaded: (id: string, filepath: string) => void;
-  setQueueTasks: (tasks: QueueTask[]) => void;
-  setProcessingQueue: (processing: boolean) => void;
   setSettings: (settings: Partial<Settings>) => void;
-  setActivePanel: (panel: 'chat' | 'queue' | 'settings' | 'history' | 'results') => void;
+  setActivePanel: (panel: 'chat' | 'queue' | 'settings' | 'history') => void;
   // 发送模式 & 批量任务 Actions
   setSendMode: (mode: SendMode) => void;
   setTaskMode: (mode: TaskMode) => void;
   setBatchTasks: (tasks: BatchTaskItem[]) => void;
   setBatchInfo: (info: BatchInfo | null) => void;
-  setBatchCollectingData: (data: any | null) => void;
   // 任务管理 Actions
   addTask: (task: TaskRecord) => void;
   updateTask: (id: string, updates: Partial<TaskRecord>) => void;
@@ -289,7 +251,6 @@ interface AppState {
   retryTask: (id: string) => void;
   deleteTask: (id: string) => void;
   downloadTask: (id: string) => void;
-  setFilter: (filter: TaskFilter) => void;
   setHighlightedTaskId: (id: string | null) => void;
   // 作品历史 Actions
   addHistory: (item: HistoryItem) => void;
@@ -316,10 +277,6 @@ export const useStore = create<AppState>((set) => ({
   isSubmitting: false,
   statusText: '',
 
-  results: [],
-  queueTasks: [],
-  isProcessingQueue: false,
-
   settings: {
     downloadDir: '',
     autoDownload: false,
@@ -335,8 +292,6 @@ export const useStore = create<AppState>((set) => ({
   taskMode: 'single',
   batchTasks: [],
   batchInfo: null,
-  batchCollectingData: null,
-
   // 任务管理初始状态
   tasks: (() => {
     try {
@@ -344,7 +299,6 @@ export const useStore = create<AppState>((set) => ({
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   })(),
-  activeTaskFilter: 'all',
   highlightedTaskId: null,
 
   // 作品历史
@@ -408,16 +362,6 @@ export const useStore = create<AppState>((set) => ({
   setMessages: (updater) => set((s) => ({ messages: updater(s.messages) })),
   setSubmitting: (isSubmitting) => set({ isSubmitting }),
   setStatusText: (statusText) => set({ statusText }),
-  setResults: (results) => set({ results }),
-  addResult: (result) => set((s) => ({ results: [result, ...s.results] })),
-  markDownloaded: (id, filepath) =>
-    set((s) => ({
-      results: s.results.map((r) =>
-        r.id === id ? { ...r, downloaded: true, filepath } : r
-      ),
-    })),
-  setQueueTasks: (queueTasks) => set({ queueTasks }),
-  setProcessingQueue: (isProcessingQueue) => set({ isProcessingQueue }),
   setSettings: (newSettings) =>
     set((s) => ({ settings: { ...s.settings, ...newSettings } })),
   setActivePanel: (activePanel) => set({ activePanel }),
@@ -475,7 +419,6 @@ export const useStore = create<AppState>((set) => ({
   setTaskMode: (taskMode) => set({ taskMode }),
   setBatchTasks: (batchTasks) => set({ batchTasks }),
   setBatchInfo: (batchInfo) => set({ batchInfo }),
-  setBatchCollectingData: (batchCollectingData) => set({ batchCollectingData }),
   // 任务管理 Actions
   addTask: (task) => set((s) => {
     const tasks = [task, ...s.tasks];
@@ -521,6 +464,5 @@ export const useStore = create<AppState>((set) => ({
       console.error('[downloadTask] 失败:', e);
     }
   },
-  setFilter: (activeTaskFilter) => set({ activeTaskFilter }),
   setHighlightedTaskId: (highlightedTaskId) => set({ highlightedTaskId }),
 }));

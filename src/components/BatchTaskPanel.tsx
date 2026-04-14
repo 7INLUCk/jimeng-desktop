@@ -1,5 +1,5 @@
 import { Play, Pause, Trash2, Edit3, Download, FolderOpen, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { useStore, type BatchTaskItem, type QueueTask } from '../store';
+import { useStore, type BatchTaskItem } from '../store';
 
 // ── Task Status Badge ──
 const statusStyles: Record<string, { bg: string; text: string }> = {
@@ -550,7 +550,7 @@ export function BatchStatusMini() {
         )}
       </div>
       <button
-        onClick={() => setActivePanel('results')}
+        onClick={() => setActivePanel('queue')}
         style={{
           color: 'var(--color-brand)',
           fontSize: '12px',

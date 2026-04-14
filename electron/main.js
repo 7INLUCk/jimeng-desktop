@@ -859,6 +859,12 @@ function registerIpcHandlers() {
         });
         sendBatchCompleteNotification(summary);
       });
+      batchTaskManager.setOnTaskUpdateCallback((task) => {
+        sendToRenderer('task:progress', {
+          event: 'batch-task-update',
+          data: task,
+        });
+      });
     }
     return batchTaskManager;
   }

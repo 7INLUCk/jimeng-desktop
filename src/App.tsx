@@ -116,14 +116,14 @@ export default function App() {
 
     const removeNotificationClick = window.api.onNotificationClick?.(({ taskId }) => {
       const store = useStore.getState();
-      store.setActivePanel('results');
+      store.setActivePanel('queue');
       store.setHighlightedTaskId(taskId);
     });
 
     const removeNotificationClickV2 = window.api.onNotificationClickV2?.(({ taskId, submitId }: { taskId: string; submitId: string }) => {
       console.log('[通知点击] taskId:', taskId, 'submitId:', submitId);
       const store = useStore.getState();
-      store.setActivePanel('results');
+      store.setActivePanel('queue');
       if (taskId) store.setHighlightedTaskId(taskId);
       // 如果有 submitId，也可以用它来定位任务
     });

@@ -242,6 +242,7 @@ class BatchTaskManager {
     try {
       pendingTask.status = BatchTaskStatus.SUBMITTED;
       this._persistTasks();
+      this._notifyTaskUpdate(pendingTask);
 
       // 构造 CLI 参数
       let args;
@@ -282,6 +283,7 @@ class BatchTaskManager {
         pendingTask.status = BatchTaskStatus.FAILED;
         pendingTask.error = result.error;
         this._persistTasks();
+        this._notifyTaskUpdate(pendingTask);
         console.log(`[批量任务] 任务 ${pendingTask.index} 失败: ${result.error}，跳过继续`);
         await this._submitNextTask();
         return;
@@ -292,6 +294,7 @@ class BatchTaskManager {
         pendingTask.status = BatchTaskStatus.FAILED;
         pendingTask.error = 'CLI 未返回 submit_id';
         this._persistTasks();
+        this._notifyTaskUpdate(pendingTask);
         console.log(`[批量任务] 任务 ${pendingTask.index} 无 submit_id，跳过继续`);
         await this._submitNextTask();
         return;
@@ -300,6 +303,7 @@ class BatchTaskManager {
       pendingTask.submitId = data.submit_id;
       pendingTask.status = BatchTaskStatus.GENERATING;
       this._persistTasks();
+      this._notifyTaskUpdate(pendingTask);
       
       // 开始轮询该任务
       this._startTaskPolling(pendingTask);
@@ -310,6 +314,7 @@ class BatchTaskManager {
       pendingTask.status = BatchTaskStatus.FAILED;
       pendingTask.error = e.message;
       this._persistTasks();
+      this._notifyTaskUpdate(pendingTask);
       console.log(`[批量任务] 任务 ${pendingTask.index} 异常: ${e.message}，跳过继续`);
       await this._submitNextTask();
     }
@@ -347,11 +352,12 @@ class BatchTaskManager {
         } else if (status === 'failed') {
           clearInterval(timer);
           this.pollingTimers.delete(task.submitId);
-          
+
           task.status = BatchTaskStatus.FAILED;
           task.error = data.error || '生成失败';
           this._persistTasks();
-          
+          this._notifyTaskUpdate(task);
+
           await this._submitNextTask();
         }
       } catch (e) {
@@ -385,12 +391,14 @@ class BatchTaskManager {
         task.status = BatchTaskStatus.DOWNLOADED;
         task.outputFile = actualPath;
         this._persistTasks();
+        this._notifyTaskUpdate(task);
 
         console.log(`[批量任务] 已下载: ${actualPath}`);
       } else {
         task.status = BatchTaskStatus.COMPLETED; // 下载失败但任务完成
         task.error = '下载失败: ' + result.error;
         this._persistTasks();
+        this._notifyTaskUpdate(task);
       }
     } catch (e) {
       console.error(`[批量任务] 下载失败:`, e.message);
@@ -486,6 +494,22 @@ class BatchTaskManager {
    */
   setOnCompleteCallback(callback) {
     this._onCompleteCallback = callback;
+  }
+
+  /**
+   * 设置单任务状态更新回调
+   */
+  setOnTaskUpdateCallback(callback) {
+    this._onTaskUpdateCallback = callback;
+  }
+
+  /**
+   * 通知单任务状态变化
+   */
+  _notifyTaskUpdate(task) {
+    if (this._onTaskUpdateCallback) {
+      this._onTaskUpdateCallback({ ...task });
+    }
   }
 
   /**

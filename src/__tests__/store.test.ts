@@ -6,7 +6,6 @@ beforeEach(() => {
   // Reset store to initial state
   useStore.setState({
     tasks: [],
-    activeTaskFilter: 'all',
     history: [],
     usage: {
       totalTasks: 0,
@@ -75,12 +74,6 @@ describe('Task Filtering', () => {
     addTask({ id: 't2', prompt: '任务2', status: 'completed', model: 's', duration: 5, materials: [], createdAt: Date.now(), retryCount: 0 });
     addTask({ id: 't3', prompt: '任务3', status: 'failed', model: 's', duration: 5, materials: [], createdAt: Date.now(), retryCount: 0 });
     addTask({ id: 't4', prompt: '任务4', status: 'pending', model: 's', duration: 5, materials: [], createdAt: Date.now(), retryCount: 0 });
-  });
-
-  it('setFilter changes the active filter', () => {
-    const { setFilter } = useStore.getState();
-    setFilter('active');
-    expect(useStore.getState().activeTaskFilter).toBe('active');
   });
 
   it('filter "active" matches generating/pending/queued tasks', () => {
