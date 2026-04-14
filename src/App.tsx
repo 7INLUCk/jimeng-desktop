@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
+import { initLocalFileServer } from './utils/localFile';
 import { ChatPanel } from './components/ChatPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -38,6 +39,7 @@ declare global {
       openDownloadDir: () => Promise<{ success: boolean; error?: string }>;
       openFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       getFileStat: (filePath: string) => Promise<{ size: number }>;
+      getFileServerPort: () => Promise<number>;
       onProgress: (callback: (data: any) => void) => () => void;
       onComplete: (callback: (data: any) => void) => () => void;
       onLoginRequired: (callback: () => void) => () => void;
@@ -138,6 +140,7 @@ export default function App() {
 
   async function init() {
     try {
+      await initLocalFileServer();
       const savedSettings = await window.api.getSettings();
       if (savedSettings) setSettings(savedSettings);
       setAppState('ready');

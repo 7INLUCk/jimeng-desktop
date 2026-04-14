@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
   selectFiles: () => ipcRenderer.invoke('file:select'),
   selectDownloadDir: () => ipcRenderer.invoke('file:select-download-dir'),
   getFileStat: (filePath) => ipcRenderer.invoke('file:stat', filePath),
+  getFileServerPort: () => ipcRenderer.invoke('file:server-port'),
 
   // 设置
   getSettings: () => ipcRenderer.invoke('settings:get'),

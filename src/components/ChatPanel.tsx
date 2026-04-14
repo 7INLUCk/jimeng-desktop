@@ -3,6 +3,7 @@ import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, 
 import { useStore, type Message, type GuidedStep, type TaskMaterial, type TaskMode, type SendMode, type BatchTaskItem } from '../store';
 import { MaterialLibrary } from './MaterialLibrary';
 import { PromptTemplates } from './PromptTemplates';
+import { localFileUrl, localFileUrlSync } from '../utils/localFile';
 
 // ── Mode Select Card (选择单个/批量) ──
 function ModeSelectCard({ onSelect }: { onSelect: (mode: TaskMode) => void }) {
@@ -588,26 +589,61 @@ function VideoThumb({ path, size = 48, onClick }: { path: string; size?: number;
   const [duration, setDuration] = useState<number | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
+
+    // Attach listeners BEFORE setting src to avoid race condition —
+    // Chromium can fire loadedmetadata synchronously when src is set
+    // if the resource is already cached.
     const onMeta = () => {
-      setDuration(video.duration);
-      video.currentTime = 0.5;
+      if (cancelled) return;
+      if (isFinite(video.duration)) setDuration(video.duration);
+      // Seek into the clip; clamp in case duration is very short
+      video.currentTime = Math.min(1, video.duration > 0 ? video.duration * 0.1 : 1);
     };
-    const onSeeked = () => {
+
+    const capture = () => {
+      if (cancelled) return;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) return;
       try {
-        canvas.width = video.videoWidth || 160;
-        canvas.height = video.videoHeight || 90;
-        canvas.getContext('2d')!.drawImage(video, 0, 0);
-        setThumb(canvas.toDataURL('image/jpeg', 0.75));
-      } catch {}
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        // 'data:,' means the canvas is blank / tainted
+        if (dataUrl && dataUrl !== 'data:,') setThumb(dataUrl);
+      } catch (e) {
+        console.warn('[VideoThumb] drawImage failed:', e);
+      }
     };
+
+    const onSeeked = () => {
+      if (cancelled) return;
+      // rAF ensures the frame is actually painted before we read pixels
+      requestAnimationFrame(capture);
+    };
+
     video.addEventListener('loadedmetadata', onMeta);
     video.addEventListener('seeked', onSeeked);
+
+    // Set src imperatively AFTER listeners are registered
+    localFileUrl(path).then(url => {
+      if (cancelled) return;
+      video.src = url;
+      video.load();
+    });
+
     return () => {
+      cancelled = true;
       video.removeEventListener('loadedmetadata', onMeta);
       video.removeEventListener('seeked', onSeeked);
+      video.src = '';
     };
   }, [path]);
 
@@ -615,7 +651,8 @@ function VideoThumb({ path, size = 48, onClick }: { path: string; size?: number;
 
   return (
     <div className="relative w-full h-full" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
-      <video ref={videoRef} src={`local-file://${path}`} style={{ display: 'none' }} preload="metadata" />
+      {/* Keep video in-flow but invisible — off-screen elements may skip decode */}
+      <video ref={videoRef} style={{ visibility: 'hidden', width: 0, height: 0, position: 'absolute' }} muted playsInline crossOrigin="anonymous" />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       {thumb ? (
         <img src={thumb} className="w-full h-full object-cover" alt="" />
@@ -732,7 +769,7 @@ function AttachmentStack({ files, onView, onRemove, onAdd, canAdd }: {
               onClick={() => hovered ? onView(file) : setHovered(true)}
             >
               {isImg && (
-                <img src={`local-file://${file}`} className="w-full h-full object-cover" alt=""
+                <img src={localFileUrlSync(file)} className="w-full h-full object-cover" alt=""
                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               )}
               {isVid && <VideoThumb path={file} size={W} />}
@@ -2095,7 +2132,7 @@ export function ChatPanel() {
         el.preload = 'metadata';
         el.onloadedmetadata = () => resolve(isFinite(el.duration) ? el.duration : 0);
         el.onerror = () => resolve(0);
-        el.src = `local-file://${path}`;
+        el.src = localFileUrlSync(path);
       });
 
     let totalVidDur = 0;
@@ -2276,7 +2313,7 @@ export function ChatPanel() {
           </button>
           {/\.(mp4|mov|avi|webm)$/i.test(viewFile) ? (
             <video
-              src={`local-file://${viewFile}`}
+              src={localFileUrlSync(viewFile)}
               controls
               autoPlay
               className="max-w-[90vw] max-h-[85vh] rounded-lg"
@@ -2284,7 +2321,7 @@ export function ChatPanel() {
             />
           ) : (
             <img
-              src={`local-file://${viewFile}`}
+              src={localFileUrlSync(viewFile)}
               alt="preview"
               className="max-w-[90vw] max-h-[85vh] rounded-lg object-contain"
               onClick={e => e.stopPropagation()}

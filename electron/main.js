@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, protocol, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -50,17 +50,86 @@ function parseCliJson(stdout) {
 // bypassCSP    → not blocked by http://localhost:5173 content security policy
 protocol.registerSchemesAsPrivileged([{
   scheme: 'local-file',
-  privileges: { stream: true, secure: true, bypassCSP: true, supportFetchAPI: true },
+  privileges: { standard: true, stream: true, secure: true, bypassCSP: true, supportFetchAPI: true, allowServiceWorkers: true, corsEnabled: true },
 }]);
 
 // 🔴 禁用 GPU 加速（解决 macOS 黑屏问题）
+// NOTE: disable-software-rasterizer and disable-gpu-compositing were removed —
+// they break canvas.drawImage (thumbnail capture) and can crash Electron 37+ (issue #42688).
+// disableHardwareAcceleration + disable-gpu is sufficient for the black-screen fix.
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('disable-gpu-compositing');
 
 let mainWindow = null;
 let aiService = null;
+let localFileServerPort = null;
+
+// ===== 本地文件 HTTP 服务器 =====
+// protocol.handle 在 Electron 37+ 中对 Range 请求有已知 Bug (#38749)，
+// 视频无法 seek / 生成缩略图。解决方案：起一个本地 HTTP 服务器，
+// 渲染进程通过 http://127.0.0.1:PORT/file?path=... 访问本地文件。
+function startLocalFileServer() {
+  return new Promise((resolve) => {
+    const MIME = {
+      '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
+      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp',
+    };
+    const server = http.createServer((req, res) => {
+      try {
+        const url = new URL(req.url, 'http://localhost');
+        const filePath = decodeURIComponent(url.searchParams.get('path') || '');
+        if (!filePath || !path.isAbsolute(filePath)) {
+          res.writeHead(400); res.end('Bad path'); return;
+        }
+        let stat;
+        try { stat = fs.statSync(filePath); } catch {
+          res.writeHead(404); res.end('Not found'); return;
+        }
+        const fileSize = stat.size;
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeType = MIME[ext] || 'application/octet-stream';
+        const range = req.headers.range;
+        const corsHeaders = { 'Access-Control-Allow-Origin': '*' };
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, corsHeaders); res.end(); return;
+        }
+        if (range) {
+          const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(startStr, 10);
+          const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
+          if (isNaN(start) || start >= fileSize) {
+            res.writeHead(416, { 'Content-Range': `bytes */${fileSize}`, ...corsHeaders }); res.end(); return;
+          }
+          const chunkSize = end - start + 1;
+          res.writeHead(206, {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunkSize,
+            'Content-Type': mimeType,
+            ...corsHeaders,
+          });
+          fs.createReadStream(filePath, { start, end }).pipe(res);
+        } else {
+          res.writeHead(200, {
+            'Content-Length': fileSize,
+            'Accept-Ranges': 'bytes',
+            'Content-Type': mimeType,
+            ...corsHeaders,
+          });
+          fs.createReadStream(filePath).pipe(res);
+        }
+      } catch (err) {
+        res.writeHead(500); res.end('Server error');
+      }
+    });
+    server.listen(0, '127.0.0.1', () => {
+      localFileServerPort = server.address().port;
+      console.log(`[FileServer] 本地文件服务器启动，端口: ${localFileServerPort}`);
+      resolve(localFileServerPort);
+    });
+  });
+}
 
 const isDev = !app.isPackaged;
 
@@ -782,6 +851,8 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('file:server-port', () => localFileServerPort);
+
   // ---- 选择下载目录 ----
   ipcMain.handle('file:select-download-dir', async () => {
     if (!mainWindow) return { dir: '' };
@@ -939,11 +1010,13 @@ function registerIpcHandlers() {
 // ===== 启动 =====
 if (gotTheLock) {
   app.whenReady().then(async () => {
-    // Register local-file:// protocol to serve local media files to renderer.
-    // Uses protocol.handle + net.fetch('file://') so that byte-range requests
-    // are handled natively by Chromium — required for <video> seek/playback and
-    // canvas frame capture. The old registerFileProtocol callback API does not
-    // support range requests, which breaks video thumbnails and preview playback.
+    // Start local file HTTP server — used by renderer to load local media files.
+    // Replaces the custom local-file:// protocol which has a confirmed unfixed bug
+    // in Electron 37+ (issue #38749): Range requests never work, so video seeking
+    // and thumbnail canvas capture are broken. A plain HTTP server on 127.0.0.1
+    // handles Range requests natively and works with any Electron version.
+    await startLocalFileServer();
+
     // IPC handlers first — must not be blocked by protocol setup failures
     registerIpcHandlers();
 
@@ -952,6 +1025,8 @@ if (gotTheLock) {
     // (electron/electron#38749, still open as of Electron 41). We implement
     // range handling manually with fs.createReadStream so <video> can seek
     // and canvas.drawImage can capture frames for thumbnails.
+    // MUST use session.defaultSession.protocol.handle (not module-level protocol.handle)
+    // for range requests to work in Electron 37+ — confirmed fix from issue #38749.
     // Wrapped in try/catch so a "scheme already registered" error on hot-reload
     // does not abort startup (IPC handlers are registered before this).
     try {
@@ -962,7 +1037,7 @@ if (gotTheLock) {
         '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
         '.aac': 'audio/aac',  '.m4a': 'audio/mp4',
       };
-      protocol.handle('local-file', (request) => {
+      session.defaultSession.protocol.handle('local-file', (request) => {
         try {
           const filePath = decodeURIComponent(request.url.slice('local-file://'.length));
           if (!fs.existsSync(filePath)) {
