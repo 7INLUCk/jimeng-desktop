@@ -1708,7 +1708,12 @@ export function ChatPanel() {
           aspectRatio: selectedRatio,
         });
       } else {
-        result = await window.api.executeTask({ prompt });
+        result = await window.api.executeTask({
+          prompt,
+          model: selectedModel,
+          duration: selectedDuration,
+          aspectRatio: selectedRatio,
+        });
       }
 
       if (result.success) {
@@ -1795,13 +1800,18 @@ export function ChatPanel() {
           });
         }
       } else {
-        const result = await window.api.executeTask(pendingTask);
+        const result = await window.api.executeTask({
+          prompt: pendingTask.prompt,
+          model: selectedModel,
+          duration: selectedDuration,
+          aspectRatio: selectedRatio,
+        });
 
         if (result.success) {
           addMessage({
             id: Date.now().toString() + '_submitted',
             role: 'assistant',
-            content: `✅ 任务已提交!即梦正在生成中,结果会自动展示。\n\n你可以继续描述下一个需求。`,
+            content: `✅ 任务已提交！即梦正在生成中，结果会自动展示。\n\n你可以继续描述下一个需求。`,
             timestamp: new Date(),
           });
         } else {
