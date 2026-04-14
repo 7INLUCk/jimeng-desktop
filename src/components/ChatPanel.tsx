@@ -533,22 +533,34 @@ function PillSelect({ label, icon, options, value, onChange, disabled }: {
         <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute bottom-full mb-1.5 left-0 bg-surface-3 border border-border rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
-          {options.map(opt => (
+        <div className="absolute bottom-full mb-1.5 left-0 bg-surface-3 border border-border rounded-xl shadow-xl z-20 overflow-hidden w-56">
+          {options.some(o => o.desc) && (
+            <div className="px-3.5 pt-2.5 pb-1.5 text-[10px] font-medium tracking-wider text-text-muted uppercase border-b border-border/50">
+              选择模式
+            </div>
+          )}
+          {options.map((opt, i) => (
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full px-3 py-2 text-left transition-colors ${
+              className={`w-full px-3.5 py-2.5 text-left transition-colors flex items-start justify-between gap-2 ${
+                i > 0 ? 'border-t border-border/30' : ''
+              } ${
                 opt.value === value
                   ? 'text-brand bg-brand/10'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
               }`}
             >
-              <div className="text-xs">{opt.label}</div>
-              {opt.desc && (
-                <div className={`text-[10px] mt-0.5 leading-tight ${opt.value === value ? 'text-brand/70' : 'text-text-muted'}`}>
-                  {opt.desc}
-                </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium">{opt.label}</div>
+                {opt.desc && (
+                  <div className={`text-[11px] mt-0.5 leading-snug ${opt.value === value ? 'text-brand/70' : 'text-text-muted'}`}>
+                    {opt.desc}
+                  </div>
+                )}
+              </div>
+              {opt.value === value && (
+                <span className="text-brand mt-0.5 shrink-0 text-xs">✓</span>
               )}
             </button>
           ))}
@@ -1328,9 +1340,8 @@ export function ChatPanel() {
             addMessage({
               id: Date.now().toString() + '_mode_ok',
               role: 'assistant',
-              content: '✅ 视频创作模式已就绪!请描述你想生成的视频。',
+              content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成（AI 帮你写提示词）、📋 批量规划（自动拆成多任务）、⚡ 专业模式（直接发提示词）。\n默认是智能生成，描述你的想法就行。',
               timestamp: new Date(),
-              type: 'mode-select',
             });
           } else {
             setGuidedStep('logged-in-ready');
@@ -1434,9 +1445,8 @@ export function ChatPanel() {
               addMessage({
                 id: Date.now().toString() + '_mode_ok',
                 role: 'assistant',
-                content: '✅ 视频创作模式已就绪(全能参考)!请描述你想生成的视频。',
+                content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成（AI 帮你写提示词）、📋 批量规划（自动拆成多任务）、⚡ 专业模式（直接发提示词）。\n默认是智能生成，描述你的想法就行。',
                 timestamp: new Date(),
-                type: 'mode-select',
               });
             } else {
               setGuidedStep('logged-in-ready');
