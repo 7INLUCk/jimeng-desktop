@@ -1331,36 +1331,13 @@ export function ChatPanel() {
           timestamp: new Date(),
         });
         useStore.getState().setIsLoggedIn(true);
-
-        // 自动初始化模式
-        try {
-          const modeResult = await window.api.initMode();
-          if (modeResult.success) {
-            setGuidedStep('logged-in-ready');
-            addMessage({
-              id: Date.now().toString() + '_mode_ok',
-              role: 'assistant',
-              content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成（AI 帮你写提示词）、📋 批量规划（自动拆成多任务）、⚡ 专业模式（直接发提示词）。\n默认是智能生成，描述你的想法就行。',
-              timestamp: new Date(),
-            });
-          } else {
-            setGuidedStep('logged-in-ready');
-            addMessage({
-              id: Date.now().toString() + '_mode_warn',
-              role: 'assistant',
-              content: '⚠️ 模式初始化遇到问题,请手动选择模式后描述需求',
-              timestamp: new Date(),
-            });
-          }
-        } catch (modeErr) {
-          setGuidedStep('logged-in-ready');
-          addMessage({
-            id: Date.now().toString() + '_mode_err',
-            role: 'assistant',
-            content: '请手动选择视频创作模式,然后描述需求',
-            timestamp: new Date(),
-          });
-        }
+        setGuidedStep('logged-in-ready');
+        addMessage({
+          id: Date.now().toString() + '_ready',
+          role: 'assistant',
+          content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成 — 描述想法，AI 帮你优化成提示词\n📋 批量规划 — 描述目标，AI 自动拆解成多个任务\n⚡ 专业模式 — 自己写好提示词，直接发送\n\n默认是智能生成，描述你想生成的视频效果就行。',
+          timestamp: new Date(),
+        });
         return;
       }
 
@@ -1430,42 +1407,13 @@ export function ChatPanel() {
           setLoginPollTimer(null);
           useStore.getState().setIsLoggedIn(true);
 
+          setGuidedStep('logged-in-ready');
           addMessage({
             id: Date.now().toString() + '_login_ok',
             role: 'assistant',
-            content: '✅ 登录成功!正在自动配置视频创作模式...',
+            content: '✅ 登录成功！左下角可以切换三种模式：\n✨ 智能生成 — 描述想法，AI 帮你优化成提示词\n📋 批量规划 — 描述目标，AI 自动拆解成多个任务\n⚡ 专业模式 — 自己写好提示词，直接发送\n\n默认是智能生成，描述你想生成的视频效果就行。',
             timestamp: new Date(),
           });
-
-          // 登录后自动初始化模式(三步切换)
-          try {
-            const modeResult = await window.api.initMode();
-            if (modeResult.success) {
-              setGuidedStep('logged-in-ready');
-              addMessage({
-                id: Date.now().toString() + '_mode_ok',
-                role: 'assistant',
-                content: '✅ 就绪！左下角可以切换三种模式：\n✨ 智能生成（AI 帮你写提示词）、📋 批量规划（自动拆成多任务）、⚡ 专业模式（直接发提示词）。\n默认是智能生成，描述你的想法就行。',
-                timestamp: new Date(),
-              });
-            } else {
-              setGuidedStep('logged-in-ready');
-              addMessage({
-                id: Date.now().toString() + '_mode_warn',
-                role: 'assistant',
-                content: `⚠️ 模式自动配置遇到问题: ${modeResult.error || '未知错误'}\n你可以在浏览器中手动选择模式,然后在这里描述需求`,
-                timestamp: new Date(),
-              });
-            }
-          } catch (modeErr) {
-            setGuidedStep('logged-in-ready');
-            addMessage({
-              id: Date.now().toString() + '_mode_err',
-              role: 'assistant',
-              content: `⚠️ 模式自动配置失败: ${modeErr}\n请在浏览器中手动选择模式`,
-              timestamp: new Date(),
-            });
-          }
         }
       } catch { /* silent */ }
     }, 3000);
