@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Upload, X, Download, Loader2, CheckCircle, RefreshCw, Settings2, Layers, FileStack, Sparkles, Globe, Type, Video, ChevronDown, ChevronUp, AlertTriangle, ArrowUp, Play, XCircle, Plus, Zap, Clock, RectangleHorizontal, Paperclip, FolderOpen } from 'lucide-react';
 import { useStore, type Message, type GuidedStep, type TaskMaterial, type TaskMode, type SendMode, type BatchTaskItem } from '../store';
 import { MaterialLibrary } from './MaterialLibrary';
-import { PromptTemplates } from './PromptTemplates';
 import { localFileUrl, localFileUrlSync } from '../utils/localFile';
 
 // ── Mode Select Card (选择单个/批量) ──
@@ -1360,7 +1359,6 @@ export function ChatPanel() {
   const [useStructuredFlow] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('vidclaw_onboarded'));
   const [showMaterialLib, setShowMaterialLib] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [viewFile, setViewFile] = useState<string | null>(null);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [lastInput, setLastInput] = useState('');
@@ -2668,20 +2666,6 @@ export function ChatPanel() {
             </div>
           </div>
 
-          {/* Templates toggle */}
-          {showTemplates ? (
-            <div className="mt-2 animate-fade-in-up">
-              <PromptTemplates onSelect={(prompt) => { setInput(prompt); textareaRef.current?.focus(); setShowTemplates(false); }} />
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowTemplates(true)}
-              className="mt-1.5 w-full py-1 text-[11px] text-text-disabled hover:text-text-muted flex items-center justify-center gap-1 transition-colors"
-            >
-              <Sparkles size={10} />
-              快速开始：选择预设模板
-            </button>
-          )}
         </div>
       )}
     </div>

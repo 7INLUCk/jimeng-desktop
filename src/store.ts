@@ -144,13 +144,6 @@ export interface SavedMaterial {
 }
 
 // ===== Prompt 模板 =====
-export interface PromptTemplate {
-  id: string;
-  name: string;
-  emoji: string;
-  prompt: string;
-  isPreset: boolean;
-}
 
 // ===== 用量统计 =====
 export interface UsageStats {
@@ -215,8 +208,6 @@ interface AppState {
   history: HistoryItem[];
   // 素材库
   materials: SavedMaterial[];
-  // Prompt 模板
-  templates: PromptTemplate[];
   // 用量统计
   usage: UsageStats;
   // 视频预览
@@ -258,9 +249,6 @@ interface AppState {
   // 素材库 Actions
   addMaterial: (item: SavedMaterial) => void;
   removeMaterial: (id: string) => void;
-  // 模板 Actions
-  addTemplate: (item: PromptTemplate) => void;
-  removeTemplate: (id: string) => void;
   // 用量 Actions
   updateUsage: (updates: Partial<UsageStats>) => void;
 }
@@ -314,21 +302,6 @@ export const useStore = create<AppState>((set) => ({
       const saved = localStorage.getItem('vidclaw_materials');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
-  })(),
-  // Prompt 模板
-  templates: (() => {
-    try {
-      const saved = localStorage.getItem('vidclaw_templates');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    // 预置模板
-    return [
-      { id: 'p1', name: '舞蹈视频', emoji: '🕺', prompt: '让 [人物] 跳 [舞蹈风格]', isPreset: true },
-      { id: 'p2', name: '换装', emoji: '👗', prompt: '让 [人物] 换上 [衣服]', isPreset: true },
-      { id: 'p3', name: '卡点视频', emoji: '🎵', prompt: '根据音乐节奏切换画面', isPreset: true },
-      { id: 'p4', name: '风景变换', emoji: '🌅', prompt: '将 [场景] 变成 [风格]', isPreset: true },
-      { id: 'p5', name: '对话场景', emoji: '💬', prompt: '两个人进行自然对话', isPreset: true },
-    ];
   })(),
   // 用量统计
   usage: (() => {
@@ -387,17 +360,6 @@ export const useStore = create<AppState>((set) => ({
     const materials = s.materials.filter(m => m.id !== id);
     try { localStorage.setItem('vidclaw_materials', JSON.stringify(materials)); } catch {}
     return { materials };
-  }),
-  // 模板 Actions
-  addTemplate: (item) => set((s) => {
-    const templates = [...s.templates, item];
-    try { localStorage.setItem('vidclaw_templates', JSON.stringify(templates)); } catch {}
-    return { templates };
-  }),
-  removeTemplate: (id) => set((s) => {
-    const templates = s.templates.filter(t => t.id !== id);
-    try { localStorage.setItem('vidclaw_templates', JSON.stringify(templates)); } catch {}
-    return { templates };
   }),
   // 用量 Actions
   updateUsage: (updates) => set((s) => {
