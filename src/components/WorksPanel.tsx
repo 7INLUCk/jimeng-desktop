@@ -334,11 +334,44 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
   const playUrl = task.localPath ? toPlayable(task.localPath) : task.resultUrl ? toPlayable(task.resultUrl) : '';
   const canManualDownload = Boolean(task.submitId || isRemoteHttpUrl(task.resultUrl));
 
+  const [deleteCountdown, setDeleteCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (highlighted) {
       cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [highlighted]);
+
+  // Reset delete confirm when countdown reaches 0
+  useEffect(() => {
+    if (deleteCountdown > 0) {
+      countdownRef.current = setInterval(() => {
+        setDeleteCountdown(c => {
+          if (c <= 1) {
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [deleteCountdown]);
+
+  const handleDeleteClick = useCallback(() => {
+    if (deleteCountdown > 0) {
+      // Second click — confirm delete
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      setDeleteCountdown(0);
+      onDelete(task.id);
+    } else {
+      // First click — start countdown
+      setDeleteCountdown(3);
+    }
+  }, [deleteCountdown, onDelete, task.id]);
 
   const handleDownload = useCallback(() => {
     if (openablePath) {
@@ -353,88 +386,128 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
   return (
     <div
       ref={cardRef}
-      className={`group bg-surface-1 border rounded-md overflow-hidden transition-colors ${
+      className={`group relative bg-surface-1 border rounded-2xl overflow-hidden cursor-pointer
+        active:scale-[0.97] transition-all duration-150 ${
         highlighted
           ? 'border-brand shadow-[0_0_0_1px_rgba(54,118,255,0.28)]'
-          : 'border-border-subtle hover:border-border'
+          : 'border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]'
       }`}
     >
       {/* Thumbnail */}
       <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {task.thumbnailUrl ? (
-          <img src={toPlayable(task.thumbnailUrl)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+          <img
+            src={toPlayable(task.thumbnailUrl)}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
         ) : isDone && playUrl ? (
-          <video src={playUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted preload="metadata" />
+          <video
+            src={playUrl}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            muted
+            preload="metadata"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {isFailed
               ? <AlertTriangle size={24} className="text-error/50" />
-              : <Film size={24} className="text-text-disabled" />}
+              : <Film size={24} className="text-text-disabled" />
+            }
           </div>
         )}
 
-        {/* Badges */}
-        <div className="absolute top-1.5 left-1.5 flex gap-1">
-          <span className="px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-white/80 font-mono">
+        {/* Duration badge — top left */}
+        <div className="absolute top-2 left-2 flex gap-1">
+          <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80 font-mono">
             {task.duration}s
           </span>
-        </div>
-        {task.status === 'downloaded' && (
-          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-success/80 text-[10px] text-white">已下载</span>
-        )}
-        {isFailed && (
-          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-error/80 text-[10px] text-white">失败</span>
-        )}
-
-        {/* Hover actions */}
-        <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {!isFailed && playUrl && (
-            <button onClick={() => onPreview(playUrl)} className="p-1.5 rounded bg-black/60 hover:bg-brand text-white transition-colors">
-              <Play size={12} />
-            </button>
-          )}
-          {!isFailed && (openablePath || canManualDownload) && (
-            <button onClick={handleDownload} className="p-1.5 rounded bg-black/60 hover:bg-brand text-white transition-colors">
-              <Download size={12} />
-            </button>
+          {task.status === 'downloaded' && (
+            <span className="px-1.5 py-0.5 rounded-md bg-success/80 text-[10px] text-white">已下载</span>
           )}
           {isFailed && (
-            <button onClick={() => onRetry(task.id)} className="p-1.5 rounded bg-black/60 hover:bg-brand text-white transition-colors">
-              <RefreshCw size={12} />
-            </button>
+            <span className="px-1.5 py-0.5 rounded-md bg-error/80 text-[10px] text-white">失败</span>
           )}
+        </div>
+
+        {/* Bottom overlay gradient + info + actions */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pt-8 pb-2.5 px-2.5">
+          {/* Prompt text */}
+          <p className="text-[11px] text-white/90 line-clamp-2 leading-snug mb-2">
+            {task.prompt || '无提示词'}
+          </p>
+
+          {/* Model badge + actions row */}
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] text-white/50">{modelShort(task.model)}</span>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(task.prompt); }}
+                className="p-1.5 rounded-lg bg-black/50 text-white/30 hover:text-white/90 transition-colors opacity-30 group-hover:opacity-100"
+                title="复制提示词"
+              >
+                <Copy size={11} />
+              </button>
+              {!isFailed && playUrl && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onPreview(playUrl); }}
+                  className="p-1.5 rounded-lg bg-black/50 text-white/30 hover:text-white/90 transition-colors opacity-30 group-hover:opacity-100"
+                  title="播放"
+                >
+                  <Play size={11} />
+                </button>
+              )}
+              {!isFailed && (openablePath || canManualDownload) && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+                  className="p-1.5 rounded-lg bg-black/50 text-white/30 hover:text-white/90 transition-colors opacity-30 group-hover:opacity-100"
+                  title="下载"
+                >
+                  <Download size={11} />
+                </button>
+              )}
+              {isFailed && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRetry(task.id); }}
+                  className="p-1.5 rounded-lg bg-black/50 text-white/30 hover:text-white/90 transition-colors opacity-30 group-hover:opacity-100"
+                  title="重试"
+                >
+                  <RefreshCw size={11} />
+                </button>
+              )}
+              {/* Delete — two-step confirm */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+                className={`p-1.5 rounded-lg transition-colors opacity-30 group-hover:opacity-100 ${
+                  deleteCountdown > 0
+                    ? 'bg-error/70 text-white opacity-100'
+                    : 'bg-black/50 text-white/30 hover:text-error'
+                }`}
+                title={deleteCountdown > 0 ? `再次点击确认删除 (${deleteCountdown}s)` : '删除'}
+              >
+                {deleteCountdown > 0
+                  ? <span className="text-[11px] font-mono w-3 text-center block">{deleteCountdown}</span>
+                  : <Trash2 size={11} />
+                }
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Info */}
-      <div className="p-3">
-        <p className="text-xs text-text-primary line-clamp-2 leading-relaxed">{task.prompt || '无提示词'}</p>
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-text-disabled">{modelShort(task.model)}</span>
-            <span className="text-[11px] text-text-disabled">·</span>
-            <span className="text-[11px] text-text-disabled">{task.duration}s</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => navigator.clipboard.writeText(task.prompt)} className="p-1 text-text-disabled hover:text-brand transition-colors" title="复制提示词">
-              <Copy size={11} />
-            </button>
-            <button onClick={() => onDelete(task.id)} className="p-1 text-text-disabled hover:text-error transition-colors" title="删除">
-              <Trash2 size={11} />
-            </button>
-          </div>
+      {/* Failed error block below thumbnail */}
+      {isFailed && (
+        <div className="p-3">
+          <TaskErrorDisplay
+            rawError={task.error}
+            source={task.model === 'kling-o1' ? 'kling' : 'seedance'}
+            onRetry={onRetry ? () => onRetry(task.id) : undefined}
+            onFix={onRetry ? () => onRetry(task.id) : undefined}
+          />
         </div>
-        {isFailed && (
-          <div className="mt-2">
-            <TaskErrorDisplay
-              rawError={task.error}
-              source={task.model === 'kling-o1' ? 'kling' : 'seedance'}
-              onRetry={onRetry ? () => onRetry(task.id) : undefined}
-              onFix={onRetry ? () => onRetry(task.id) : undefined}
-            />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
