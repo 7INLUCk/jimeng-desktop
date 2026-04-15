@@ -434,27 +434,46 @@ class AIService {
    * @returns {Promise<{subject: string, count: number, variations: Array, reasoning: string, questions?: Array}>}
    */
   async planBatchTasks(userInput, materials = { images: [], videos: [], audios: [] }) {
-    const PLAN_SYSTEM_PROMPT = `你是批量视频任务规划专家。用户描述需求，你输出拆解计划。
+    const PLAN_SYSTEM_PROMPT = `你是批量视频任务规划专家。用户描述批量需求，你把它拆解成若干个各有差异的子任务。
 
-输出格式（严格 JSON）：
+## 核心原则
+
+### 一致性（所有子任务共享的部分）
+- 主体形象、人物、场景基调
+- 画面风格、色彩、镜头语言
+- 参考素材所提供的视觉元素
+
+### 差异化（每个子任务必须不同的部分）
+根据用户需求类型决定差异化维度：
+- 台词/对话类 → 每个视频的具体台词内容必须完全不同，且在 description 里写出完整台词文本
+- 动作/表情类 → 每个视频的具体动作/表情必须不同且具体
+- 场景/情绪类 → 每个视频的场景或情绪必须有实质区别
+- 混合类 → 按主需求灵活组合
+
+## 输出格式（严格 JSON）
 {
-  "subject": "核心主体（人物/形象）",
-  "count": 3,
+  "subject": "核心主体（人物/形象/场景简述）",
+  "count": 5,
+  "consistent_elements": "跨所有子任务保持一致的元素（形象、风格、基调等）",
+  "differentiation_dimension": "本批次的核心差异化维度（如：台词内容、动作、场景等）",
   "variations": [
-    { "action": "挠屁股", "style": "轻松自然", "description": "卡通形象轻轻挠挠屁股" },
-    { "action": "摇头", "style": "可爱生动", "description": "左右摇摇头" }
+    {
+      "action": "差异化内容的一句话概括",
+      "style": "这个子任务的风格/情绪",
+      "description": "详细描述，台词类必须写出完整台词文本，动作类写出具体动作细节"
+    }
   ],
   "reasoning": "拆解逻辑说明",
   "questions": []
 }
 
-规则：
+## 规则
 1. count 不超过 20
-2. 每个 variation 必须有差异化
-3. 如果用户信息不足，返回 questions 字段列出追问
-4. variations 数组中的每个元素包含：action（动作）、style（风格）、description（详细描述）
-5. subject 是核心主体，保持一致性
-6. 如果有素材参考，在 reasoning 中说明如何利用素材`;
+2. 每个 variation 的 description 必须包含足够的差异化细节，不能模糊
+3. 台词类需求：description 里必须写出每个视频的具体台词原文
+4. 如果用户信息不足以生成有意义的差异，返回 questions 追问
+5. 如果有素材，在 reasoning 中说明如何结合素材`;
+
 
     // 构建素材描述
     const materialDesc = [];
@@ -567,7 +586,8 @@ class AIService {
     for (const variation of plan.variations || []) {
       try {
         // 构建单个任务的输入（已含共享素材上下文）
-        const baseInput = `${plan.subject}，${variation.description}。风格：${variation.style}`;
+        const consistentPart = plan.consistent_elements ? `保持一致的元素：${plan.consistent_elements}。` : '';
+        const baseInput = `${plan.subject}，${variation.description}。风格：${variation.style}。${consistentPart}`;
         const taskInput = sharedMaterialContext
           ? `${baseInput}\n\n${sharedMaterialContext}`
           : baseInput;

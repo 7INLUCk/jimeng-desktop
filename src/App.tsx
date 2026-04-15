@@ -9,11 +9,10 @@ import { SkillsPanel } from './components/SkillsPanel';
 import { SubscriptionPanel } from './components/SubscriptionPanel';
 import { AuthModal } from './components/AuthModal';
 import { Sidebar } from './components/Sidebar';
-import { BatchTaskPanel } from './components/BatchTaskPanel';
 import { WorksPanel } from './components/WorksPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { VideoModal } from './components/VideoModal';
-import { Maximize2, Minimize2, PawPrint, Zap } from 'lucide-react';
+import { PawPrint, Zap } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -89,11 +88,10 @@ export default function App() {
     appState,
     setAppState,
     setSettings, activePanel, setActivePanel,
-    taskMode, batchTasks, previewUrl, setPreviewUrl,
+    previewUrl, setPreviewUrl,
     auth, credits,
   } = useStore();
 
-  const [showBatchPanel, setShowBatchPanel] = useState(true);
 
   useEffect(() => {
     init();
@@ -218,25 +216,7 @@ export default function App() {
             {activePanel === 'settings' && <SettingsPanel />}
             {activePanel === 'subscription' && <SubscriptionPanel />}
           </div>
-
-          {/* Batch task panel (right) */}
-          {taskMode === 'batch' && batchTasks.length > 0 && showBatchPanel && (
-            <div className="w-80 border-l border-[var(--color-border)] shrink-0">
-              <BatchTaskPanel />
-            </div>
-          )}
         </main>
-
-        {/* Batch toggle button */}
-        {taskMode === 'batch' && batchTasks.length > 0 && (
-          <button
-            onClick={() => setShowBatchPanel(!showBatchPanel)}
-            className="fixed bottom-4 right-4 p-2 bg-[var(--color-brand)] text-white rounded-full shadow-[var(--shadow-lg)] hover:shadow-[var(--shadow-lg)] transition-all"
-            title={showBatchPanel ? '隐藏任务面板' : '显示任务面板'}
-          >
-            {showBatchPanel ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          </button>
-        )}
 
         {/* Video preview modal */}
         <VideoModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
