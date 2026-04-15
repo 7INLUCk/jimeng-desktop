@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Loader2, Clock, Film, Image as ImageIcon, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, Download, Play, Layers } from 'lucide-react';
+import { Loader2, Clock, Film, Image as ImageIcon, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, Download, Play } from 'lucide-react';
 import { useStore, type TaskRecord } from '../store';
 
 
@@ -24,86 +24,6 @@ const statusLabel: Record<string, string> = {
 };
 
 type FilterType = 'active' | 'completed' | 'failed' | 'all';
-
-// ── Batch task mini card ─────────────────────────────────────────────────────
-
-function BatchProgressSection() {
-  const { batchTasks, batchInfo } = useStore();
-
-  const activeBatch = batchTasks.filter(t =>
-    ['pending', 'submitted', 'generating'].includes(t.status)
-  );
-  const doneBatch = batchTasks.filter(t =>
-    ['completed', 'downloaded', 'failed'].includes(t.status)
-  );
-  const total = batchTasks.length;
-
-  if (total === 0) return null;
-
-  const progressPct = total > 0 ? Math.round((doneBatch.length / total) * 100) : 0;
-
-  return (
-    <div className="px-3 pt-3 pb-2 border-b border-border-subtle">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <Layers size={13} className="text-brand" />
-          <span className="text-xs font-medium text-text-secondary">
-            {batchInfo?.name || '批量任务'}
-          </span>
-          <span className="text-[10px] bg-brand/15 text-brand px-1.5 py-0.5 rounded-full">
-            {doneBatch.length}/{total}
-          </span>
-        </div>
-        {activeBatch.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Loader2 size={11} className="animate-spin text-brand" />
-            <span className="text-[10px] text-brand">{activeBatch.length} 执行中</span>
-          </div>
-        )}
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden mb-2">
-        <div
-          className="h-full bg-brand rounded-full transition-all duration-500"
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-
-      {/* Task rows */}
-      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-        {batchTasks.map((t, i) => {
-          const isActive = ['pending', 'submitted', 'generating'].includes(t.status);
-          const isDone = ['completed', 'downloaded'].includes(t.status);
-          const isFailed = t.status === 'failed';
-
-          return (
-            <div key={t.id} className={`flex items-start gap-2 px-2 py-1.5 rounded-md text-xs ${
-              isFailed ? 'bg-error/8' : isDone ? 'bg-success/8' : 'bg-surface-2'
-            }`}>
-              <span className="text-[10px] font-mono text-text-disabled w-4 flex-shrink-0 mt-0.5">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-text-secondary line-clamp-1">{t.prompt}</p>
-                {t.error && <p className="text-[10px] text-error/70 mt-0.5 line-clamp-1">{t.error}</p>}
-              </div>
-              <span className={`flex-shrink-0 text-[10px] font-medium ${
-                isFailed ? 'text-error' : isDone ? 'text-success' : 'text-brand'
-              }`}>
-                {isFailed ? '失败' : isDone ? '完成' : isActive ? '执行中' : '等待'}
-              </span>
-              {isActive && <Loader2 size={10} className="animate-spin text-brand flex-shrink-0 mt-0.5" />}
-              {isDone && <CheckCircle size={10} className="text-success flex-shrink-0 mt-0.5" />}
-              {isFailed && <XCircle size={10} className="text-error flex-shrink-0 mt-0.5" />}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function QueuePanel() {
   const { tasks } = useStore();
@@ -132,9 +52,6 @@ export function QueuePanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 批量任务进度 */}
-      <BatchProgressSection />
-
       {/* Tab 切换 */}
       <div className="px-3 pt-3 pb-2 border-b border-border-subtle">
         <div className="flex items-center gap-1.5">

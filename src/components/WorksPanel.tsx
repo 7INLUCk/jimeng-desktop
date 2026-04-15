@@ -4,7 +4,7 @@ import {
   LayoutGrid, List, FolderOpen, Film, Image as ImageIcon, X, ChevronDown,
   ChevronUp, Copy, Clock, Layers
 } from 'lucide-react';
-import { useStore, type TaskRecord, type BatchHistoryRecord, type BatchHistoryTask } from '../store';
+import { useStore, type TaskRecord, type BatchHistoryRecord, type BatchHistoryTask, type BatchTaskItem } from '../store';
 import { localFileUrlSync } from '../utils/localFile';
 import { parseTaskError, CATEGORY_COLORS, type ParsedError } from '../utils/errorMessages';
 
@@ -110,6 +110,89 @@ function TaskErrorDisplay({ rawError, source, onRetry, onFix }: {
 }
 
 // ── Active task queue card (compact) ─────────────────────────────────────────
+
+// ── Batch queue section — shown above single-task queue in WorksPanel ────────
+
+function BatchQueueSection() {
+  const { batchTasks, batchInfo } = useStore();
+  const [expanded, setExpanded] = useState(true);
+
+  const total = batchTasks.length;
+  if (total === 0) return null;
+
+  const doneBatch = batchTasks.filter((t: BatchTaskItem) =>
+    ['completed', 'downloaded', 'failed'].includes(t.status)
+  );
+  const activeBatch = batchTasks.filter((t: BatchTaskItem) =>
+    ['pending', 'submitted', 'generating'].includes(t.status)
+  );
+  const progressPct = Math.round((doneBatch.length / total) * 100);
+  const isRunning = activeBatch.length > 0;
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-md p-3 flex flex-col gap-2 col-span-full">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isRunning
+            ? <Loader2 size={11} className="animate-spin text-brand flex-shrink-0" />
+            : <CheckCircle size={11} className="text-success flex-shrink-0" />
+          }
+          <span className="text-[11px] font-medium text-brand">批量任务</span>
+          <span className="text-[10px] bg-brand/15 text-brand px-1.5 py-0.5 rounded-full flex-shrink-0">
+            {doneBatch.length}/{total}
+          </span>
+          {batchInfo?.name && (
+            <span className="text-[10px] text-text-muted truncate">{batchInfo.name}</span>
+          )}
+        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-brand transition-colors flex-shrink-0"
+        >
+          {expanded ? <><ChevronUp size={12} />收起</> : <><ChevronDown size={12} />展开</>}
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 bg-surface-3 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-brand rounded-full transition-all duration-500"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+
+      {/* Task rows */}
+      {expanded && (
+        <div className="space-y-1 mt-0.5">
+          {batchTasks.map((t: BatchTaskItem, i: number) => {
+            const isDone = ['completed', 'downloaded'].includes(t.status);
+            const isFailed = t.status === 'failed';
+            const isActive = ['pending', 'submitted', 'generating'].includes(t.status);
+            return (
+              <div key={t.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-[11px] ${
+                isFailed ? 'bg-error/8' : isDone ? 'bg-success/8' : 'bg-surface-3/50'
+              }`}>
+                <span className="text-[10px] font-mono text-text-disabled w-4 flex-shrink-0">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="flex-1 text-text-secondary truncate">{t.prompt}</p>
+                {isActive && <Loader2 size={10} className="animate-spin text-brand flex-shrink-0" />}
+                {isDone && <CheckCircle size={10} className="text-success flex-shrink-0" />}
+                {isFailed && <AlertTriangle size={10} className="text-error flex-shrink-0" />}
+                <span className={`text-[10px] font-medium flex-shrink-0 ${
+                  isFailed ? 'text-error' : isDone ? 'text-success' : 'text-brand'
+                }`}>
+                  {isFailed ? '失败' : isDone ? '完成' : isActive ? '执行中' : '等待'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function QueueCard({ task }: { task: TaskRecord }) {
   const isActive = ['generating', 'uploading'].includes(task.status);
@@ -614,7 +697,7 @@ function getDateGroup(ts: number): string {
 // ── Main WorksPanel ───────────────────────────────────────────────────────────
 
 export function WorksPanel() {
-  const { tasks, batchHistory, retryTask, deleteTask, setPreviewUrl, removeBatchHistory } = useStore();
+  const { tasks, batchTasks, batchHistory, retryTask, deleteTask, setPreviewUrl, removeBatchHistory } = useStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [queueExpanded, setQueueExpanded] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<BatchHistoryRecord | null>(null);
@@ -714,15 +797,17 @@ export function WorksPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {/* ── Queue section ──────────────────────────────────────────────── */}
-        {activeTasks.length > 0 && (
+        {(activeTasks.length > 0 || batchTasks.length > 0) && (
           <section className="px-4 pt-4 pb-2">
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
                 <Loader2 size={12} className="animate-spin text-brand" />
                 <span className="text-xs font-medium text-text-secondary">生成队列</span>
-                <span className="text-[10px] bg-brand/15 text-brand px-1.5 py-0.5 rounded-full">
-                  {activeTasks.length}
-                </span>
+                {activeTasks.length > 0 && (
+                  <span className="text-[10px] bg-brand/15 text-brand px-1.5 py-0.5 rounded-full">
+                    {activeTasks.length}
+                  </span>
+                )}
               </div>
               {activeTasks.length > QUEUE_DEFAULT && (
                 <button
@@ -735,6 +820,7 @@ export function WorksPanel() {
             </div>
 
             <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : 'grid-cols-1'}`}>
+              <BatchQueueSection />
               {visibleQueue.map(t => <QueueCard key={t.id} task={t} />)}
             </div>
           </section>

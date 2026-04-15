@@ -166,10 +166,7 @@ export default function App() {
           setBatchTasks(restoredTasks);
           if (batchStatus.batch) setBatchInfo(batchStatus.batch);
           if (taskMode !== 'batch') setTaskMode('batch');
-          setActivePanel('queue');
-          console.log('[Init] restored', restoredTasks.length, 'batch tasks into store');
-        } else {
-          console.log('[Init] no batch tasks to restore');
+          setActivePanel('works');
         }
       } catch (err) {
         console.error('[Init] getBatchStatus failed:', err);
