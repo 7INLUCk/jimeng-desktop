@@ -10,65 +10,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { VideoModal } from './components/VideoModal';
 import { Maximize2, Minimize2, PawPrint } from 'lucide-react';
 
-declare global {
-  interface Window {
-    api: {
-      launchBrowser: () => Promise<{ success: boolean; error?: string }>;
-      checkLogin: () => Promise<{ loggedIn: boolean }>;
-      clickLogin: () => Promise<{ success: boolean }>;
-      relaunchBrowser: () => Promise<{ success: boolean; error?: string }>;
-      openJimeng: () => Promise<{ success: boolean; error?: string }>;
-      submitTask: (input: string) => Promise<{ success: boolean; message?: string; error?: string }>;
-      submitTaskWithFiles: (input: string, filePaths: string[]) => Promise<{ success: boolean; message?: string; error?: string }>;
-      prepareTask: (input: string) => Promise<{ success: boolean; task?: any; error?: string }>;
-      executeTask: (task: any) => Promise<{ success: boolean; message?: string; error?: string }>;
-      prepareTaskForSeedance: (input: string, materials: { images?: any[]; videos?: any[]; audios?: any[] }) => Promise<{ success: boolean; task?: any; materials?: any; error?: string }>;
-      prepareBatchTasks: (input: string) => Promise<{ success: boolean; batchName?: string; description?: string; tasks?: any[]; questions?: string[]; error?: string }>;
-      downloadTask: (item: any) => Promise<{ success: boolean; filepath?: string; error?: string }>;
-      downloadAll: () => Promise<{ results: any[] }>;
-      getResults: () => Promise<{ results: any[] }>;
-      enqueueTask: (task: any) => Promise<{ success: boolean; queueStatus?: any }>;
-      processQueue: () => Promise<{ success: boolean }>;
-      getQueueStatus: () => Promise<{ queueStatus: any }>;
-      selectFiles: () => Promise<{ files: string[] }>;
-      selectDownloadDir: () => Promise<{ dir: string }>;
-      getSettings: () => Promise<any>;
-      saveSettings: (settings: any) => Promise<{ success: boolean; settings?: any }>;
-      getStatus: () => Promise<{ browserReady: boolean; isLoggedIn: boolean | null; version: string; resultsCount: number; queueStatus: any }>;
-      openDownloadDir: () => Promise<{ success: boolean; error?: string }>;
-      openFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
-      onProgress: (callback: (data: any) => void) => () => void;
-      onComplete: (callback: (data: any) => void) => () => void;
-      onLoginRequired: (callback: () => void) => () => void;
-      onLoginDetected: (callback: () => void) => () => void;
-      onNotificationClick: (callback: (data: { taskId: string }) => void) => () => void;
-      onNotificationClickV2: (callback: (data: { taskId: string; submitId: string }) => void) => () => void;
-      navigateToGenerate: () => Promise<{ success: boolean; error?: string }>;
-      switchToSeedanceMode: () => Promise<{ success: boolean; mode?: string; error?: string }>;
-      selectModel: (model: string) => Promise<{ success: boolean; model?: string; label?: string; error?: string }>;
-      setDuration: (seconds: number) => Promise<{ success: boolean; duration?: number; error?: string }>;
-      setAspectRatio: (ratio: string) => Promise<{ success: boolean; ratio?: string; error?: string }>;
-      uploadMaterials: (materials: Array<{ path: string; type: 'image' | 'video' }>) => Promise<{ success: boolean; results: Array<{ path: string; type: string; success: boolean; storeUri?: string; vid?: string; error?: string }> }>;
-      submitStructured: (params: { prompt: string; materials?: any[]; metaList?: any[]; model?: string; duration?: number; aspectRatio?: string }) => Promise<{ success: boolean; taskId?: string; uploadResults?: any[]; message?: string; error?: string }>;
-      runStructuredTask: (params: { prompt: string; materials?: any[]; metaList?: any[]; model?: string; duration?: number; aspectRatio?: string }) => Promise<{ success: boolean; taskId?: string; uploadResults?: any[]; message?: string; error?: string }>;
-      getModels: () => Promise<{ models: Record<string, { key: string; label: string; benefit: string }>; aspectRatios: string[] }>;
-      initMode: () => Promise<{ success: boolean; error?: string }>;
-      createBatch: (batch: any, tasks: any[]) => Promise<{ success: boolean; batchId?: string; totalTasks?: number; error?: string }>;
-      startBatch: () => Promise<{ success: boolean; error?: string }>;
-      stopBatch: () => Promise<{ success: boolean; error?: string }>;
-      getBatchStatus: () => Promise<{ success: boolean; batch?: any; tasks?: any[]; statusCounts?: any; running?: boolean; error?: string }>;
-      updateBatchTask: (taskId: string, updates: any) => Promise<{ success: boolean; task?: any; error?: string }>;
-      deleteBatchTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-      sendTaskNotify: (task: { id: string; prompt: string }) => Promise<void>;
-      checkCredits: () => Promise<{ success: boolean; isLoggedIn?: boolean; credits?: number; error?: string }>;
-      authLogin: () => Promise<{ success: boolean; qrPath?: string; message?: string; error?: string }>;
-      authLogout: () => Promise<{ success: boolean; error?: string }>;
-      emailLogin: (email: string) => Promise<{ success: boolean; isInternal?: boolean; error?: string }>;
-      klingGenerate: (params: { imagePaths: string[]; prompt: string; duration: number; aspectRatio: string }) => Promise<{ success: boolean; videoUrl?: string; localPath?: string; submitId?: string; error?: string }>;
-    };
-  }
-}
-
 export default function App() {
   const {
     appState,

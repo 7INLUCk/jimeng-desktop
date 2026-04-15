@@ -107,6 +107,7 @@ function BatchConfirmCard({
   batchName,
   description,
   materials,
+  modelHint,
   onConfirm,
   onEdit,
   onSaveAsSkill,
@@ -116,6 +117,7 @@ function BatchConfirmCard({
   batchName: string;
   description: string;
   materials: MaterialItem[];
+  modelHint?: string;
   onConfirm: () => void;
   onEdit: () => void;
   onSaveAsSkill?: () => void;
@@ -128,7 +130,7 @@ function BatchConfirmCard({
   const [previewImg, setPreviewImg] = useState<string | null>(null);
 
   // Shared params — derived from first task (must come before MODEL_OPTIONS for isKling check)
-  const sharedModel = batchTasks[0]?.model || 'seedance2.0fast';
+  const sharedModel = modelHint || batchTasks[0]?.model || 'seedance2.0fast';
   const sharedDuration = batchTasks[0]?.duration || 5;
   const sharedRatio = batchTasks[0]?.aspectRatio || '9:16';
   const isKling = sharedModel === 'kling-o1';
@@ -146,6 +148,8 @@ function BatchConfirmCard({
   const { credits, jimengBalance } = useStore();
   const klingTotalCost = isKling ? batchTasks.reduce((sum, t) => sum + (t.duration * 10), 0) : 0;
   const canAfford = !isKling || credits.balance >= klingTotalCost;
+  const balanceLabel = isKling ? 'VidClaw 积分余额' : '即梦账号余额';
+  const balanceValue = isKling ? credits.balance : jimengBalance;
 
   const updateSharedParam = (key: 'model' | 'duration' | 'aspectRatio', value: any) => {
     setBatchTasks(batchTasks.map(t => ({ ...t, [key]: value })));
@@ -334,24 +338,21 @@ function BatchConfirmCard({
         </div>
 
         {/* 积分余额行 */}
-        {isKling ? (
-          <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${canAfford ? 'bg-brand/10 border border-brand/20' : 'bg-error/10 border border-error/20'}`}>
-            <div className="flex items-center gap-1.5">
-              <Zap size={11} className={canAfford ? 'text-brand' : 'text-error'} />
-              <span className={`text-[11px] font-medium ${canAfford ? 'text-brand' : 'text-error'}`}>
-                共 {batchTasks.length} 条 · 合计消耗 {klingTotalCost} 积分
-              </span>
-            </div>
-            <span className={`text-[10px] ${canAfford ? 'text-text-muted' : 'text-error'}`}>
-              余额 {credits.balance.toLocaleString()} {!canAfford && '· 不足'}
+        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${
+          isKling
+            ? (canAfford ? 'bg-brand/10 border border-brand/20' : 'bg-error/10 border border-error/20')
+            : 'bg-surface-3'
+        }`}>
+          <div className="flex items-center gap-1.5">
+            {isKling && <Zap size={11} className={canAfford ? 'text-brand' : 'text-error'} />}
+            <span className={`text-[11px] font-medium ${isKling ? (canAfford ? 'text-brand' : 'text-error') : 'text-text-secondary'}`}>
+              {isKling ? `共 ${batchTasks.length} 条 · 合计消耗 ${klingTotalCost} 积分` : balanceLabel}
             </span>
           </div>
-        ) : (
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-3">
-            <span className="text-[10px] text-text-muted">即梦账号余额</span>
-            <span className="text-[10px] text-text-secondary font-medium">{jimengBalance.toLocaleString()} 积分</span>
-          </div>
-        )}
+          <span className={`text-[10px] ${isKling ? (canAfford ? 'text-text-muted' : 'text-error') : 'text-text-secondary font-medium'}`}>
+            {isKling ? `余额 ${balanceValue.toLocaleString()}${!canAfford ? ' · 不足' : ''}` : `${balanceValue.toLocaleString()} 积分`}
+          </span>
+        </div>
         {/* Action buttons */}
         <div className="flex items-center gap-2 pt-1 flex-wrap">
           <button
@@ -1018,8 +1019,8 @@ function ParameterPanel({
   if (!visible) return null;
 
   const models = [
-    { value: 'seedance_2.0_fast', label: 'Fast' },
-    { value: 'seedance_2.0', label: 'Standard' },
+    { value: 'seedance2.0fast', label: 'Fast' },
+    { value: 'seedance2.0', label: 'Standard' },
   ];
   const durations = [4, 5, 6, 8, 10, 12, 15];
   const ratios = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -2035,7 +2036,18 @@ export function ChatPanel() {
 
     try {
       const result = await window.api.prepareBatchTasks(userMsg.content, batchMaterials, batchDefaults);
-      if (!result.success || !result.tasks || result.tasks.length === 0) {
+      if (result.questions && result.questions.length > 0) {
+        const questionList = result.questions.map((q: any, i: number) =>
+          `${i + 1}. ${typeof q === 'string' ? q : q.text || JSON.stringify(q)}`
+        ).join('\n');
+        addMessage({
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `🤔 我已经调用了 AI 做批量规划，但它认为当前信息还不够，先需要你补充这几点：\n\n${questionList}`,
+          timestamp: new Date(),
+        });
+        setGuidedStep('logged-in-ready');
+      } else if (!result.success || !result.tasks || result.tasks.length === 0) {
         addMessage({
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -2047,6 +2059,7 @@ export function ChatPanel() {
         setTaskMode('single');
       } else {
         // Populate batchTasks store so the confirm card can read/edit live state
+        const forcedModel = selectedModel === 'kling-o1' ? 'kling-o1' : undefined;
         const mappedTasks: BatchTaskItem[] = result.tasks.map((t: any, i: number) => ({
           id: `task_${Date.now()}_${i}`,
           index: i,
@@ -2056,7 +2069,7 @@ export function ChatPanel() {
           expectedEffect: t.expectedEffect || '',
           duration: t.duration || selectedDuration,
           aspectRatio: t.aspectRatio || selectedRatio,
-          model: t.model || selectedModel,
+          model: forcedModel || t.model || selectedModel,
           status: 'pending' as const,
         }));
         setBatchTasks(mappedTasks);
@@ -2072,6 +2085,7 @@ export function ChatPanel() {
             batchName: result.batchName || '批量任务',
             description: result.description || '',
             materials: flatBatchMaterials,
+            selectedModel,
           },
         });
       }
@@ -2406,18 +2420,49 @@ export function ChatPanel() {
   }
 
   function handleEditTask(rewriteMsgId?: string) {
-    // Remove the AI rewrite card and the user message that triggered it
+    let restoredInput = '';
+    let restoredFiles: string[] = [];
     setMessages(prev => {
       if (!rewriteMsgId) return prev;
       const idx = prev.findIndex(m => m.id === rewriteMsgId);
       if (idx === -1) return prev;
-      // Also remove the user message just before the rewrite card
-      const start = idx > 0 && prev[idx - 1].role === 'user' ? idx - 1 : idx;
+      const sourceMsg = idx > 0 && prev[idx - 1].role === 'user' ? prev[idx - 1] : undefined;
+      restoredInput = sourceMsg?.content || lastInput;
+      restoredFiles = Array.isArray(sourceMsg?.data?.materials)
+        ? sourceMsg.data.materials
+            .map((m: any) => m?.path)
+            .filter((path: unknown): path is string => typeof path === 'string' && path.length > 0)
+        : [...lastFiles];
+      const start = sourceMsg ? idx - 1 : idx;
       return prev.filter((_, i) => i < start || i > idx);
     });
     setPendingTask(null);
     setGuidedStep('logged-in-ready');
-    setInput(''); // clear, don't restore — user starts fresh
+    setInput(restoredInput);
+    setSelectedFiles(restoredFiles);
+  }
+
+  function handleEditBatchConfirm(confirmMsgId?: string) {
+    let restoredInput = '';
+    let restoredFiles: string[] = [];
+    setMessages(prev => {
+      if (!confirmMsgId) return prev;
+      const idx = prev.findIndex(m => m.id === confirmMsgId);
+      if (idx === -1) return prev;
+      const sourceMsg = idx > 0 && prev[idx - 1].role === 'user' ? prev[idx - 1] : undefined;
+      restoredInput = sourceMsg?.content || lastInput;
+      restoredFiles = Array.isArray(sourceMsg?.data?.materials)
+        ? sourceMsg.data.materials
+            .map((m: any) => m?.path)
+            .filter((path: unknown): path is string => typeof path === 'string' && path.length > 0)
+        : [...lastFiles];
+      const start = sourceMsg ? idx - 1 : idx;
+      return prev.filter((_, i) => i < start || i > idx);
+    });
+    setTaskMode('batch');
+    setGuidedStep('logged-in-ready');
+    setInput(restoredInput || lastInput);
+    setSelectedFiles(restoredFiles);
   }
 
   async function handleConfirmBatch(batchData: any) {
@@ -2982,11 +3027,14 @@ export function ChatPanel() {
 
       if (data.event === 'kling-progress' && data.data?.submitId) {
         const found = useStore.getState().tasks.find(t => t.submitId === data.data.submitId);
-        if (found && (found.progress !== data.data.progress || found.statusMessage !== data.data.message)) {
+        const nextStatus = data.data.stage === 'queued' ? 'queued' : 'generating';
+        if (found && (found.status !== nextStatus || found.progress !== data.data.progress || found.statusMessage !== data.data.message)) {
           useStore.getState().updateTask(found.id, {
-            status: 'generating',
+            status: nextStatus,
             progress: data.data.progress,
             statusMessage: data.data.message,
+            queuePosition: undefined,
+            nextPollAt: undefined,
           });
         }
         return;
@@ -3006,22 +3054,28 @@ export function ChatPanel() {
       if (data.event === 'result') {
         const found = useStore.getState().tasks.find(t => t.submitId === data.data?.submitId);
         if (found) {
+          const resolvedResultUrl = data.data.resultUrl || data.data.filePath || found.resultUrl || '';
+          const resolvedLocalPath = data.data.filePath || found.localPath || '';
+          const isDownloaded = Boolean(data.data.filePath);
           useStore.getState().updateTask(found.id, {
-            status: 'downloaded',
+            status: isDownloaded ? 'downloaded' : 'completed',
             filePath: data.data.filePath,
-            downloaded: true,
+            resultUrl: resolvedResultUrl,
+            localPath: resolvedLocalPath,
+            downloaded: isDownloaded,
             progress: 100,
             completedAt: Date.now(),
           });
           useStore.getState().addHistory({
             id: 'hist_' + Date.now(),
+            submitId: found.submitId,
             prompt: found.prompt,
             model: found.model,
             duration: found.duration,
-            resultUrl: data.data.resultUrl || data.data.filePath || '',
-            localPath: data.data.filePath || '',
+            resultUrl: resolvedResultUrl,
+            localPath: resolvedLocalPath,
             createdAt: Date.now(),
-            status: 'downloaded',
+            status: isDownloaded ? 'downloaded' : 'completed',
           });
           // For Kling tasks show completion message with credit info
           if (found.model === 'kling-o1') {
@@ -3115,7 +3169,7 @@ export function ChatPanel() {
             totalTasks: total,
             completedTasks: succeeded,
             tasks: liveBatchTasks.map(bt => ({
-              index: bt.index,
+              index: bt.index + 1,
               prompt: bt.prompt,
               status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
               outputFile: bt.outputFile,
@@ -3125,6 +3179,8 @@ export function ChatPanel() {
             completedAt: Date.now(),
           });
         }
+        store.setBatchTasks([]);
+        store.setBatchInfo(null);
       } else if (data.event === 'batch-task-update') {
         const task = data.data;
         if (!task || task.index == null) return;
@@ -3283,7 +3339,7 @@ export function ChatPanel() {
       addMessage({
         id: Date.now().toString() + '_dl',
         role: 'system',
-        content: `✅ 已下载: ${result.filepath?.split('/').pop()}`,
+        content: `✅ 已下载: ${result.filePath?.split('/').pop()}`,
         timestamp: new Date(),
         type: 'download',
       });
@@ -3411,7 +3467,13 @@ export function ChatPanel() {
                   onDownload={msg.type === 'result' && msg.data ? () => handleDownload(msg.data) : undefined}
                   onGuideClick={msg.type === 'guide-button' && guidedStep === 'welcome' ? handleReady : undefined}
                   onConfirm={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? handleConfirmTask : msg.type === 'batch-confirm' && msg.data ? () => handleConfirmBatch(msg.data) : undefined}
-                  onEdit={msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming' ? () => handleEditTask(msg.id) : undefined}
+                  onEdit={
+                    msg.type === 'ai-rewrite' && msg.data && guidedStep === 'task-confirming'
+                      ? () => handleEditTask(msg.id)
+                      : msg.type === 'batch-confirm' && msg.data
+                        ? () => handleEditBatchConfirm(msg.id)
+                        : undefined
+                  }
                   onRetry={msg.type === 'error' && lastPrompt ? handleRetry : undefined}
                   onLoginRetry={msg.type === 'login-error' ? handleLoginRetry : undefined}
                   task={msg.type === 'ai-rewrite' ? msg.data : undefined}
@@ -3544,10 +3606,10 @@ export function ChatPanel() {
               />
               <PillSelect
                 icon={<Zap size={10} />}
-                label={selectedModel === 'kling-o1' ? '可灵 O1' : selectedModel === 'seedance_2.0_fast' ? 'Seedance 2.0 Fast' : 'Seedance 2.0'}
+                label={selectedModel === 'kling-o1' ? '可灵 O1' : selectedModel === 'seedance2.0fast' ? 'Seedance 2.0 Fast' : 'Seedance 2.0'}
                 options={[
-                  { value: 'seedance_2.0_fast', label: 'Seedance 2.0 Fast', desc: '即梦 · 最快速度' },
-                  { value: 'seedance_2.0', label: 'Seedance 2.0', desc: '即梦 · 标准质量' },
+                  { value: 'seedance2.0fast', label: 'Seedance 2.0 Fast', desc: '即梦 · 最快速度' },
+                  { value: 'seedance2.0', label: 'Seedance 2.0', desc: '即梦 · 标准质量' },
                   { value: 'kling-o1', label: '可灵 O1 · 图生视频', desc: `图生视频 · ${selectedDuration * 10} 积分/${selectedDuration}s · 需上传图片` },
                 ]}
                 value={selectedModel}
@@ -3881,9 +3943,9 @@ function SkillConfirmCard({
     setExtraFiles(prev => [...prev, ...files]);
   }
 
-  const modelLabel = ['seedance2.0fast', 'seedance_2.0_fast'].includes(skill.model)
+  const modelLabel = skill.model === 'seedance2.0fast'
     ? 'Seedance 2.0 Fast'
-    : ['seedance2.0', 'seedance_2.0'].includes(skill.model)
+    : skill.model === 'seedance2.0'
     ? 'Seedance 2.0'
     : skill.model;
 
@@ -4406,6 +4468,7 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
           batchName={data?.batchName || '批量任务'}
           description={data?.description || ''}
           materials={data?.materials || []}
+          modelHint={data?.selectedModel}
           onConfirm={onConfirm || (() => {})}
           onEdit={onEdit || (() => {})}
           onSaveAsSkill={onSaveAsSkill ? () => onSaveAsSkill() : undefined}

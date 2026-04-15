@@ -502,8 +502,8 @@ export const useStore = create<AppState>((set) => ({
     if (!task?.submitId) return;
     try {
       const result = await window.api.downloadTask({ submitId: task.submitId });
-      if (result.success && result.filepath) {
-        useStore.getState().updateTask(id, { filePath: result.filepath, downloaded: true, status: 'downloaded' });
+      if (result.success && result.filePath) {
+        useStore.getState().updateTask(id, { filePath: result.filePath, downloaded: true, status: 'downloaded' });
       }
     } catch (e) {
       console.error('[downloadTask] 失败:', e);

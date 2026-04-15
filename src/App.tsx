@@ -28,7 +28,7 @@ declare global {
       executeTask: (task: any) => Promise<{ success: boolean; message?: string; error?: string }>;
       prepareTaskForSeedance: (input: string, materials: { images?: any[]; videos?: any[]; audios?: any[] }) => Promise<{ success: boolean; task?: any; materials?: any; error?: string }>;
       prepareBatchTasks: (input: string, materials?: { images: any[]; videos: any[]; audios: any[] }, defaults?: { model?: string; duration?: number; aspectRatio?: string }) => Promise<{ success: boolean; batchName?: string; description?: string; tasks?: any[]; questions?: string[]; error?: string }>;
-      downloadTask: (item: any) => Promise<{ success: boolean; filepath?: string; error?: string }>;
+      downloadTask: (item: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       downloadAll: () => Promise<{ results: any[] }>;
       getResults: () => Promise<{ results: any[] }>;
       enqueueTask: (task: any) => Promise<{ success: boolean; queueStatus?: any }>;
@@ -153,6 +153,7 @@ export default function App() {
 
   async function init() {
     try {
+      useStore.getState().reconcileCreditsBalance();
       await initLocalFileServer();
       const savedSettings = await window.api.getSettings();
       if (savedSettings) setSettings(savedSettings);
@@ -163,38 +164,41 @@ export default function App() {
         const restoredTasks = batchStatus.success ? (batchStatus.tasks as import('./store').BatchTaskItem[] | undefined) : undefined;
         if (restoredTasks && restoredTasks.length > 0) {
           const store = useStore.getState();
-          store.setBatchTasks(restoredTasks);
-          if (batchStatus.batch) store.setBatchInfo(batchStatus.batch);
-          if (store.taskMode !== 'batch') store.setTaskMode('batch');
-          store.setActivePanel('works');
-
-          // 若所有任务已完成（app 上次运行期间完成但未记录到 batchHistory），补录一条
           const allDone = restoredTasks.every(t =>
             t.status === 'completed' || t.status === 'downloaded' || t.status === 'failed'
           );
           const batch = batchStatus.batch as any;
-          if (allDone && batch && !store.batchHistory.find(h => h.id === batch.id)) {
-            const succeeded = restoredTasks.filter(t => t.status === 'completed' || t.status === 'downloaded').length;
-            store.addBatchHistory({
-              id: batch.id,
-              name: batch.name || '批量任务',
-              description: batch.description || '',
-              model: restoredTasks[0]?.model ?? '',
-              duration: restoredTasks[0]?.duration ?? 5,
-              aspectRatio: restoredTasks[0]?.aspectRatio ?? '16:9',
-              sharedMaterials: (restoredTasks[0]?.materials ?? []).map((m: any) => ({ path: m.path, type: m.type })),
-              totalTasks: restoredTasks.length,
-              completedTasks: succeeded,
-              tasks: restoredTasks.map(bt => ({
-                index: bt.index,
-                prompt: bt.prompt,
-                status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
-                outputFile: bt.outputFile,
-                error: bt.error,
-              })),
-              createdAt: new Date(batch.createdAt).getTime(),
-              completedAt: Date.now(),
-            });
+          if (allDone) {
+            if (batch && !store.batchHistory.find(h => h.id === batch.id)) {
+              const succeeded = restoredTasks.filter(t => t.status === 'completed' || t.status === 'downloaded').length;
+              store.addBatchHistory({
+                id: batch.id,
+                name: batch.name || '批量任务',
+                description: batch.description || '',
+                model: restoredTasks[0]?.model ?? '',
+                duration: restoredTasks[0]?.duration ?? 5,
+                aspectRatio: restoredTasks[0]?.aspectRatio ?? '16:9',
+                sharedMaterials: (restoredTasks[0]?.materials ?? []).map((m: any) => ({ path: m.path, type: m.type })),
+                totalTasks: restoredTasks.length,
+                completedTasks: succeeded,
+                tasks: restoredTasks.map(bt => ({
+                  index: bt.index,
+                  prompt: bt.prompt,
+                  status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
+                  outputFile: bt.outputFile,
+                  error: bt.error,
+                })),
+                createdAt: new Date(batch.createdAt).getTime(),
+                completedAt: Date.now(),
+              });
+            }
+            store.setBatchTasks([]);
+            store.setBatchInfo(null);
+          } else {
+            store.setBatchTasks(restoredTasks);
+            if (batchStatus.batch) store.setBatchInfo(batchStatus.batch);
+            if (store.taskMode !== 'batch') store.setTaskMode('batch');
+            store.setActivePanel('works');
           }
         }
       } catch (err) {

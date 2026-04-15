@@ -1753,7 +1753,7 @@ export function ChatPanel() {
       addMessage({
         id: Date.now().toString() + '_dl',
         role: 'system',
-        content: `✅ 已下载: ${result.filepath?.split('/').pop()}`,
+        content: `✅ 已下载: ${result.filePath?.split('/').pop()}`,
         timestamp: new Date(),
         type: 'download',
       });

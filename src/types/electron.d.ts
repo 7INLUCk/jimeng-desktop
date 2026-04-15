@@ -24,7 +24,14 @@ declare global {
       // 任务（兼容旧接口）
       submitTask: (input: string) => Promise<{ success: boolean; message?: string; error?: string }>;
       submitTaskWithFiles: (input: string, filePaths: string[]) => Promise<{ success: boolean; message?: string; error?: string }>;
-      downloadTask: (item: any) => Promise<{ success: boolean; filepath?: string; error?: string }>;
+      downloadTask: (item: {
+        submitId?: string;
+        url?: string;
+        prompt?: string;
+        model?: string;
+        duration?: number;
+        downloadDir?: string;
+      }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       downloadAll: () => Promise<{ results: any[] }>;
       getResults: () => Promise<{ results: any[] }>;
 

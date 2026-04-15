@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, Notification, protocol, net, sessio
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
@@ -71,6 +72,53 @@ function parseCliJson(stdout) {
   } catch {
     return null;
   }
+}
+
+function isRemoteHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function downloadRemoteVideo(videoUrl, outputPath, redirectDepth = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectDepth > 10) return reject(new Error('Too many redirects'));
+
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+    const urlObj = new URL(videoUrl);
+    const transport = urlObj.protocol === 'https:' ? https : http;
+    const file = fs.createWriteStream(outputPath);
+
+    const handleResponse = (response) => {
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        file.close();
+        try { fs.unlinkSync(outputPath); } catch {}
+        const location = response.headers.location;
+        if (!location) return reject(new Error('Redirect without location'));
+        return downloadRemoteVideo(location, outputPath, redirectDepth + 1).then(resolve).catch(reject);
+      }
+
+      if (response.statusCode !== 200) {
+        file.close();
+        try { fs.unlinkSync(outputPath); } catch {}
+        return reject(new Error(`HTTP ${response.statusCode}`));
+      }
+
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+      file.on('error', (err) => {
+        try { fs.unlinkSync(outputPath); } catch {}
+        reject(err);
+      });
+    };
+
+    transport.get(videoUrl, handleResponse).on('error', (err) => {
+      try { fs.unlinkSync(outputPath); } catch {}
+      reject(err);
+    });
+  });
 }
 
 // Register local-file:// as a privileged streaming scheme BEFORE app.ready.
@@ -451,14 +499,26 @@ function startPolling(submitId, task) {
     const genStatus = data.gen_status || data.status || 'unknown';
     const queueInfo = data.queue_info || {};
     const queueIdx    = queueInfo.queue_idx    ?? -1;
-    const queueLength = queueInfo.queue_length  ?? 0;
-    console.log(`[轮询] submit_id=${submitId} gen_status=${genStatus} queue_idx=${queueIdx}`);
+    const queueLength = queueInfo.queue_length ?? 0;
+    const queueStatus = queueInfo.queue_status || '';
+    console.log(`[轮询] submit_id=${submitId} gen_status=${genStatus} queue_status=${queueStatus} queue_idx=${queueIdx}`);
 
     if (genStatus === 'success' || genStatus === 'failed') {
       stopPolling(submitId);
 
       if (genStatus === 'success') {
         const downloadDir = task.downloadDir || settings.downloadDir;
+
+        if (!settings.autoDownload) {
+          console.log(`[下载] 自动下载已关闭，submit_id=${submitId} 标记为 completed，等待手动下载`);
+          sendToRenderer('task:progress', {
+            event: 'result',
+            data: { submitId, prompt: task.prompt, status: 'completed', filePath: '', downloadDir, downloaded: false },
+          });
+          sendTaskNotification(task);
+          return;
+        }
+
         try { fs.mkdirSync(downloadDir, { recursive: true }); } catch {}
 
         const downloadResult = await callDreamina([
@@ -495,14 +555,14 @@ function startPolling(submitId, task) {
           console.log(`[下载] 完成 filePath="${filePath}" downloadDir="${downloadDir}"`);
           sendToRenderer('task:progress', {
             event: 'result',
-            data: { submitId, prompt: task.prompt, status: 'completed', filePath, downloadDir },
+            data: { submitId, prompt: task.prompt, status: 'completed', filePath, downloadDir, downloaded: true },
           });
           sendTaskNotification(task);
         } else {
           console.warn(`[下载] 失败: ${downloadResult.error}`);
           sendToRenderer('task:progress', {
             event: 'result',
-            data: { submitId, prompt: task.prompt, status: 'completed', filePath: '', downloadDir, downloadError: downloadResult.error },
+            data: { submitId, prompt: task.prompt, status: 'completed', filePath: '', downloadDir, downloadError: downloadResult.error, downloaded: false },
           });
         }
       } else {
@@ -512,13 +572,26 @@ function startPolling(submitId, task) {
         });
       }
     } else {
-      // 仍在排队（Seedance 目前只有这种情况）
-      const nextPollAt = Date.now() + POLL_INTERVAL_QUEUED;
+      if (queueStatus === 'Queuing') {
+        const nextPollAt = Date.now() + POLL_INTERVAL_QUEUED;
+        sendToRenderer('task:progress', {
+          event: 'queued',
+          data: { submitId, queuePosition: queueIdx, queueLength, queueStatus, nextPollAt },
+        });
+        entry.timer = setTimeout(doPoll, POLL_INTERVAL_QUEUED);
+        return;
+      }
+
       sendToRenderer('task:progress', {
-        event: 'queued',
-        data: { submitId, queuePosition: queueIdx, queueLength, nextPollAt },
+        event: 'progress',
+        data: {
+          submitId,
+          progress: 50,
+          queueStatus,
+          message: queueStatus === 'Generating' ? '正在生成...' : '处理中...',
+        },
       });
-      entry.timer = setTimeout(doPoll, POLL_INTERVAL_QUEUED);
+      entry.timer = setTimeout(doPoll, POLL_INTERVAL_FALLBACK);
     }
   }
 
@@ -879,15 +952,64 @@ function registerIpcHandlers() {
   });
 
   // ---- 手动下载 ----
-  ipcMain.handle('task:download', async (_event, { submitId, downloadDir }) => {
-    const dir = downloadDir || settings.downloadDir;
-    const result = await callDreamina(['query_result', '--submit_id=' + submitId, '--download_dir=' + dir], 60000);
-    
-    if (result.success) {
+  ipcMain.handle('task:download', async (_event, payload = {}) => {
+    const { submitId, downloadDir, url, prompt, model, duration } = payload;
+    const baseDir = downloadDir || settings.downloadDir;
+
+    if (submitId) {
+      const dir = baseDir;
+      const result = await callDreamina(['query_result', '--submit_id=' + submitId, '--download_dir=' + dir], 60000);
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
       const data = parseCliJson(result.stdout);
-      return { success: true, filePath: data?.download_path || '', downloadDir: dir };
+      let filePath = data?.download_path || data?.file_path || '';
+      if (!filePath || !fs.existsSync(filePath)) {
+        try {
+          const files = fs.readdirSync(dir)
+            .filter(f => /\.(mp4|mov|webm)$/i.test(f))
+            .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+            .sort((a, b) => b.mtime - a.mtime);
+          if (files.length > 0) {
+            filePath = path.join(dir, files[0].name);
+          }
+        } catch (e) {
+          console.warn('[手动下载] 扫描目录失败:', e.message);
+        }
+      }
+
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { success: false, error: '下载完成但未找到文件' };
+      }
+
+      if (prompt) {
+        const desiredPath = path.join(dir, makeVideoName(prompt, model || 'seedance2.0fast', duration || 5));
+        filePath = safeRename(filePath, desiredPath);
+      }
+
+      return { success: true, filePath, downloadDir: dir };
     }
-    return { success: false, error: result.error };
+
+    if (isRemoteHttpUrl(url)) {
+      const dir = model === 'kling-o1' ? path.join(baseDir, '可灵O1') : baseDir;
+      const desiredPath = path.join(dir, makeVideoName(prompt || '视频', model || 'manual', duration || 5));
+      const tempPath = path.join(
+        dir,
+        `.__vidclaw_downloading_${Date.now()}_${Math.random().toString(16).slice(2)}${path.extname(desiredPath) || '.mp4'}`
+      );
+      try {
+        await downloadRemoteVideo(url, tempPath);
+        const filePath = safeRename(tempPath, desiredPath);
+        return { success: true, filePath, downloadDir: dir };
+      } catch (err) {
+        try { fs.unlinkSync(tempPath); } catch {}
+        return { success: false, error: err.message };
+      }
+    }
+
+    return { success: false, error: '缺少可用的下载来源' };
   });
 
   // ---- 选择文件 ----

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isRemoteHttpUrl } from './utils/filePath';
 
 export interface Message {
   id: string;
@@ -155,6 +156,7 @@ export interface Skill {
 // ===== 作品历史 =====
 export interface HistoryItem {
   id: string;
+  submitId?: string;
   prompt: string;
   model: string;
   duration: number;
@@ -162,7 +164,7 @@ export interface HistoryItem {
   thumbnailUrl?: string;
   localPath?: string;
   createdAt: number;
-  status: 'completed' | 'downloaded' | 'deleted';
+  status: 'completed' | 'downloaded' | 'failed' | 'deleted';
 }
 
 // ===== 批量任务历史（已完成的批次）=====
@@ -221,6 +223,20 @@ export interface CreditTransaction {
 export interface CreditsState {
   balance: number;
   transactions: CreditTransaction[];
+}
+
+function computeCreditsBalanceFromTransactions(transactions: CreditTransaction[]): number {
+  return transactions.reduce((sum, tx) => {
+    if (tx.type === 'deduct') return sum - tx.amount;
+    return sum + tx.amount;
+  }, 0);
+}
+
+function normalizeCreditsState(credits: CreditsState, auth: AuthUser | null): CreditsState {
+  if (!auth?.isInternal || !credits.transactions.length) return credits;
+  const expectedBalance = computeCreditsBalanceFromTransactions(credits.transactions);
+  if (expectedBalance < 0 || expectedBalance === credits.balance) return credits;
+  return { ...credits, balance: expectedBalance };
 }
 
 // ===== 用量统计 =====
@@ -300,6 +316,7 @@ interface AppState {
   deductCredits: (amount: number, description: string) => boolean;
   addCredits: (amount: number, description: string) => void;
   syncBalance: (balance: number) => void;
+  reconcileCreditsBalance: () => void;
   jimengBalance: number;
   setJimengBalance: (balance: number) => void;
 
@@ -338,6 +355,7 @@ interface AppState {
   setHighlightedTaskId: (id: string | null) => void;
   // 作品历史 Actions
   addHistory: (item: HistoryItem) => void;
+  updateHistory: (id: string, updates: Partial<HistoryItem>) => void;
   removeHistory: (id: string) => void;
   // 批量任务历史 Actions
   addBatchHistory: (record: BatchHistoryRecord) => void;
@@ -432,9 +450,15 @@ export const useStore = create<AppState>((set) => ({
     } catch { return null; }
   })(),
   credits: (() => {
+    let auth: AuthUser | null = null;
+    try {
+      const savedAuth = localStorage.getItem('vidclaw_auth');
+      auth = savedAuth ? JSON.parse(savedAuth) : null;
+    } catch {}
     try {
       const saved = localStorage.getItem('vidclaw_credits');
-      return saved ? JSON.parse(saved) : { balance: 0, transactions: [] };
+      const credits = saved ? JSON.parse(saved) : { balance: 0, transactions: [] };
+      return normalizeCreditsState(credits, auth);
     } catch { return { balance: 0, transactions: [] }; }
   })(),
   jimengBalance: 0,
@@ -477,6 +501,11 @@ export const useStore = create<AppState>((set) => ({
   // 作品历史 Actions
   addHistory: (item) => set((s) => {
     const history = [item, ...s.history].slice(0, 200);
+    try { localStorage.setItem('vidclaw_history', JSON.stringify(history)); } catch {}
+    return { history };
+  }),
+  updateHistory: (id, updates) => set((s) => {
+    const history = s.history.map(h => h.id === id ? { ...h, ...updates } : h);
     try { localStorage.setItem('vidclaw_history', JSON.stringify(history)); } catch {}
     return { history };
   }),
@@ -524,12 +553,20 @@ export const useStore = create<AppState>((set) => ({
   }),
   setActiveSkill: (activeSkill) => set({ activeSkill }),
   // 鉴权 Actions
-  setAuth: (auth) => set(() => {
+  setAuth: (auth) => set((s) => {
     try { localStorage.setItem('vidclaw_auth', auth ? JSON.stringify(auth) : ''); } catch {}
-    return { auth };
+    const credits = normalizeCreditsState(s.credits, auth);
+    try { localStorage.setItem('vidclaw_credits', JSON.stringify(credits)); } catch {}
+    return { auth, credits };
   }),
   syncBalance: (balance) => set((s) => {
     const credits = { ...s.credits, balance };
+    try { localStorage.setItem('vidclaw_credits', JSON.stringify(credits)); } catch {}
+    return { credits };
+  }),
+  reconcileCreditsBalance: () => set((s) => {
+    const credits = normalizeCreditsState(s.credits, s.auth);
+    if (credits.balance === s.credits.balance) return {};
     try { localStorage.setItem('vidclaw_credits', JSON.stringify(credits)); } catch {}
     return { credits };
   }),
@@ -621,11 +658,34 @@ export const useStore = create<AppState>((set) => ({
   }),
   downloadTask: async (id) => {
     const task = useStore.getState().tasks.find(t => t.id === id);
-    if (!task?.submitId) return;
+    if (!task) return;
+    const downloadArgs = isRemoteHttpUrl(task.resultUrl)
+      ? { url: task.resultUrl, prompt: task.prompt, model: task.model, duration: task.duration }
+      : task.submitId
+        ? { submitId: task.submitId, prompt: task.prompt, model: task.model, duration: task.duration }
+        : null;
+    if (!downloadArgs) return;
     try {
-      const result = await window.api.downloadTask({ submitId: task.submitId });
-      if (result.success && result.filepath) {
-        useStore.getState().updateTask(id, { filePath: result.filepath, downloaded: true, status: 'downloaded' });
+      const result = await window.api.downloadTask(downloadArgs);
+      if (result.success && result.filePath) {
+        useStore.getState().updateTask(id, {
+          filePath: result.filePath,
+          localPath: result.filePath,
+          resultUrl: result.filePath,
+          downloaded: true,
+          status: 'downloaded',
+        });
+        const matchingHistory = useStore.getState().history.find(h =>
+          h.submitId === task.submitId ||
+          (task.resultUrl && h.resultUrl === task.resultUrl)
+        );
+        if (matchingHistory) {
+          useStore.getState().updateHistory(matchingHistory.id, {
+            localPath: result.filePath,
+            resultUrl: result.filePath,
+            status: 'downloaded',
+          });
+        }
       }
     } catch (e) {
       console.error('[downloadTask] 失败:', e);

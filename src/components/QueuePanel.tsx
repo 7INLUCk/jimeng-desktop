@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Loader2, Clock, Film, Image as ImageIcon, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, Download, Play } from 'lucide-react';
 import { useStore, type TaskRecord } from '../store';
+import { getOpenableLocalPath, isRemoteHttpUrl } from '../utils/filePath';
 
 
 const statusColor: Record<string, string> = {
@@ -124,6 +125,8 @@ function TaskCard({ task }: { task: TaskRecord }) {
   const isGenerating = task.status === 'generating';
   const isCompleted = ['completed', 'downloaded'].includes(task.status);
   const isFailed    = task.status === 'failed';
+  const openablePath = getOpenableLocalPath(task.localPath, task.filePath, task.resultUrl);
+  const canManualDownload = Boolean(task.submitId || isRemoteHttpUrl(task.resultUrl));
 
   // ── Countdown (Seedance queued) ──────────────────────────────────────────
   // Re-render every minute so the minsLeft computation stays accurate.
@@ -193,14 +196,14 @@ function TaskCard({ task }: { task: TaskRecord }) {
             </span>
 
             {/* Seedance: queue position */}
-            {isQueued && (task.queuePosition ?? -1) >= 0 && (
+            {isQueued && !isKling && (task.queuePosition ?? -1) >= 0 && (
               <span className="text-xs text-warning font-mono bg-warning/10 px-1.5 py-0.5 rounded">
                 第 {(task.queuePosition! + 1).toLocaleString()} 位
               </span>
             )}
 
             {/* Kling: stage message */}
-            {isKling && isGenerating && task.statusMessage && (
+            {isKling && (isGenerating || isQueued) && task.statusMessage && (
               <span className="text-xs text-text-muted truncate max-w-[180px]">{task.statusMessage}</span>
             )}
 
@@ -210,7 +213,7 @@ function TaskCard({ task }: { task: TaskRecord }) {
           </div>
 
           {/* Seedance queued: countdown */}
-          {isQueued && minsLeft !== null && (
+          {isQueued && !isKling && minsLeft !== null && (
             <div className="flex items-center gap-1 mt-1.5">
               <Clock size={10} className="text-text-disabled" />
               <span className="text-[11px] text-text-disabled">
@@ -244,7 +247,7 @@ function TaskCard({ task }: { task: TaskRecord }) {
               <RefreshCw size={14} />
             </button>
           )}
-          {isCompleted && !task.downloaded && task.filePath && (
+          {isCompleted && !task.downloaded && canManualDownload && (
             <button
               onClick={() => downloadTask?.(task.id)}
               className="p-1 rounded-md hover:bg-success/15 hover:text-success text-text-muted transition-colors"
@@ -253,8 +256,8 @@ function TaskCard({ task }: { task: TaskRecord }) {
               <Download size={14} />
             </button>
           )}
-          {isCompleted && task.filePath && (() => {
-            const filePath = task.filePath;
+          {isCompleted && openablePath && (() => {
+            const filePath = openablePath;
             return (
               <button
                 onClick={() => window.api.openFile?.(filePath)}

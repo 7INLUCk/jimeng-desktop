@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Loader2, CheckCircle, AlertTriangle, Download, Play, Trash2, RefreshCw,
   LayoutGrid, List, FolderOpen, Film, Image as ImageIcon, X, ChevronDown,
@@ -7,6 +7,7 @@ import {
 import { useStore, type TaskRecord, type BatchHistoryRecord, type BatchHistoryTask, type BatchTaskItem } from '../store';
 import { localFileUrlSync } from '../utils/localFile';
 import { parseTaskError, CATEGORY_COLORS, type ParsedError } from '../utils/errorMessages';
+import { getOpenableLocalPath, isRemoteHttpUrl } from '../utils/filePath';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,9 +115,12 @@ function TaskErrorDisplay({ rawError, source, onRetry, onFix }: {
 function BatchQueueCard() {
   const { batchTasks, batchInfo } = useStore();
   const [expanded, setExpanded] = useState(false);
+  const hasActiveTasks = batchTasks.some((t: BatchTaskItem) =>
+    ['pending', 'submitted', 'generating'].includes(t.status)
+  );
 
   const total = batchTasks.length;
-  if (total === 0) return null;
+  if (total === 0 || !hasActiveTasks) return null;
 
   const doneBatch = batchTasks.filter((t: BatchTaskItem) =>
     ['completed', 'downloaded', 'failed'].includes(t.status)
@@ -225,6 +229,11 @@ function QueueCard({ task }: { task: TaskRecord }) {
   const isQueued = task.status === 'queued';
   const isKling = task.model === 'kling-o1';
   const progress = task.progress ?? 0;
+  const statusText = isQueued && isKling && task.statusMessage
+    ? task.statusMessage
+    : isQueued && task.queuePosition != null
+      ? `第 ${task.queuePosition + 1} 位`
+      : STATUS_LABEL[task.status];
 
   return (
     <div className="bg-surface-2 border border-border rounded-md p-3 flex flex-col gap-2 min-w-0">
@@ -234,9 +243,7 @@ function QueueCard({ task }: { task: TaskRecord }) {
           {(isActive) && <Loader2 size={11} className="animate-spin text-brand flex-shrink-0" />}
           {isQueued && <Clock size={11} className="text-warning flex-shrink-0" />}
           <span className={`text-[11px] font-medium ${STATUS_COLOR[task.status]}`}>
-            {isQueued && task.queuePosition != null
-              ? `第 ${task.queuePosition + 1} 位`
-              : STATUS_LABEL[task.status]}
+            {statusText}
           </span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -298,23 +305,46 @@ function QueueCard({ task }: { task: TaskRecord }) {
 
 // ── Single task works card — grid mode ───────────────────────────────────────
 
-function SingleCardGrid({ task, onPreview, onDelete, onRetry }: {
+function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = false }: {
   task: TaskRecord;
   onPreview: (url: string) => void;
   onDelete: (id: string) => void;
   onRetry: (id: string) => void;
+  highlighted?: boolean;
 }) {
+  const { downloadTask } = useStore();
   const isFailed = task.status === 'failed';
   const isDone = ['completed', 'downloaded'].includes(task.status);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const openablePath = getOpenableLocalPath(task.localPath, task.filePath, task.resultUrl);
   const playUrl = task.localPath ? toPlayable(task.localPath) : task.resultUrl ? toPlayable(task.resultUrl) : '';
+  const canManualDownload = Boolean(task.submitId || isRemoteHttpUrl(task.resultUrl));
+
+  useEffect(() => {
+    if (highlighted) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlighted]);
 
   const handleDownload = useCallback(() => {
-    const p = task.localPath || task.resultUrl;
-    if (p) window.api.openFile(p);
-  }, [task]);
+    if (openablePath) {
+      window.api.openFile(openablePath);
+      return;
+    }
+    if (task.status === 'completed' && canManualDownload) {
+      void downloadTask(task.id);
+    }
+  }, [canManualDownload, downloadTask, openablePath, task]);
 
   return (
-    <div className="group bg-surface-1 border border-border-subtle rounded-md overflow-hidden hover:border-border transition-colors">
+    <div
+      ref={cardRef}
+      className={`group bg-surface-1 border rounded-md overflow-hidden transition-colors ${
+        highlighted
+          ? 'border-brand shadow-[0_0_0_1px_rgba(54,118,255,0.28)]'
+          : 'border-border-subtle hover:border-border'
+      }`}
+    >
       {/* Thumbnail */}
       <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {task.thumbnailUrl ? (
@@ -349,7 +379,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry }: {
               <Play size={12} />
             </button>
           )}
-          {!isFailed && (
+          {!isFailed && (openablePath || canManualDownload) && (
             <button onClick={handleDownload} className="p-1.5 rounded bg-black/60 hover:bg-brand text-white transition-colors">
               <Download size={12} />
             </button>
@@ -397,22 +427,45 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry }: {
 
 // ── Single task works card — list mode ───────────────────────────────────────
 
-function SingleCardList({ task, onPreview, onDelete, onRetry }: {
+function SingleCardList({ task, onPreview, onDelete, onRetry, highlighted = false }: {
   task: TaskRecord;
   onPreview: (url: string) => void;
   onDelete: (id: string) => void;
   onRetry: (id: string) => void;
+  highlighted?: boolean;
 }) {
+  const { downloadTask } = useStore();
   const isFailed = task.status === 'failed';
+  const cardRef = useRef<HTMLDivElement>(null);
+  const openablePath = getOpenableLocalPath(task.localPath, task.filePath, task.resultUrl);
   const playUrl = task.localPath ? toPlayable(task.localPath) : task.resultUrl ? toPlayable(task.resultUrl) : '';
+  const canManualDownload = Boolean(task.submitId || isRemoteHttpUrl(task.resultUrl));
+
+  useEffect(() => {
+    if (highlighted) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlighted]);
 
   const handleDownload = useCallback(() => {
-    const p = task.localPath || task.resultUrl;
-    if (p) window.api.openFile(p);
-  }, [task]);
+    if (openablePath) {
+      window.api.openFile(openablePath);
+      return;
+    }
+    if (task.status === 'completed' && canManualDownload) {
+      void downloadTask(task.id);
+    }
+  }, [canManualDownload, downloadTask, openablePath, task]);
 
   return (
-    <div className="group flex items-center gap-3 bg-surface-1 border border-border-subtle rounded-md p-3 hover:border-border transition-colors">
+    <div
+      ref={cardRef}
+      className={`group flex items-center gap-3 bg-surface-1 border rounded-md p-3 transition-colors ${
+        highlighted
+          ? 'border-brand shadow-[0_0_0_1px_rgba(54,118,255,0.28)]'
+          : 'border-border-subtle hover:border-border'
+      }`}
+    >
       {/* Thumbnail */}
       <div className="w-20 h-14 rounded-md overflow-hidden bg-surface-2 flex-shrink-0 relative">
         {task.thumbnailUrl
@@ -448,7 +501,7 @@ function SingleCardList({ task, onPreview, onDelete, onRetry }: {
             <Play size={12} />
           </button>
         )}
-        {!isFailed && (
+        {!isFailed && (openablePath || canManualDownload) && (
           <button onClick={handleDownload} className="p-1.5 rounded bg-surface-3 hover:bg-brand hover:text-white text-text-muted transition-colors">
             <Download size={12} />
           </button>
@@ -558,6 +611,7 @@ function BatchCardList({ record, onClick }: { record: BatchHistoryRecord; onClic
 
 function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose: () => void }) {
   const { setPreviewUrl, removeBatchHistory } = useStore();
+  const zeroBasedIndex = useMemo(() => record.tasks.some(t => t.index === 0), [record.tasks]);
 
   const handleDownloadAll = useCallback(() => {
     const dir = record.tasks.find(t => t.outputFile)?.outputFile;
@@ -615,6 +669,7 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
               key={t.index}
               task={t}
               onPreview={(url) => setPreviewUrl(url)}
+              zeroBasedIndex={zeroBasedIndex}
             />
           ))}
         </div>
@@ -643,10 +698,15 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
 
 // ── Batch task row (inside drawer) ────────────────────────────────────────────
 
-function BatchTaskRow({ task, onPreview }: { task: BatchHistoryTask; onPreview: (url: string) => void }) {
+function BatchTaskRow({ task, onPreview, zeroBasedIndex }: {
+  task: BatchHistoryTask;
+  onPreview: (url: string) => void;
+  zeroBasedIndex: boolean;
+}) {
   const isFailed = task.status === 'failed';
   const isDone = !isFailed;
   const playUrl = task.outputFile ? toPlayable(task.outputFile) : '';
+  const displayIndex = zeroBasedIndex ? task.index + 1 : task.index;
 
   return (
     <div className={`flex items-start gap-3 rounded-md p-2.5 border transition-colors ${
@@ -654,7 +714,7 @@ function BatchTaskRow({ task, onPreview }: { task: BatchHistoryTask; onPreview: 
     }`}>
       {/* Index */}
       <span className="text-[10px] font-mono text-text-muted bg-surface-3 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">
-        {String(task.index + 1).padStart(2, '0')}
+        {String(displayIndex).padStart(2, '0')}
       </span>
 
       {/* Thumbnail */}
@@ -723,9 +783,22 @@ function getDateGroup(ts: number): string {
 // ── Main WorksPanel ───────────────────────────────────────────────────────────
 
 export function WorksPanel() {
-  const { tasks, batchTasks, batchHistory, retryTask, deleteTask, setPreviewUrl, removeBatchHistory } = useStore();
+  const {
+    tasks,
+    batchTasks,
+    batchHistory,
+    retryTask,
+    deleteTask,
+    setPreviewUrl,
+    highlightedTaskId,
+    setHighlightedTaskId,
+  } = useStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedBatch, setSelectedBatch] = useState<BatchHistoryRecord | null>(null);
+  const hasActiveBatchTasks = useMemo(
+    () => batchTasks.some(t => ['pending', 'submitted', 'generating'].includes(t.status)),
+    [batchTasks]
+  );
 
   // ── Partition tasks ──────────────────────────────────────────────────────
   const activeTasks = useMemo(
@@ -769,6 +842,12 @@ export function WorksPanel() {
       setSelectedBatch(null);
     }
   }, [batchHistory, selectedBatch]);
+
+  useEffect(() => {
+    if (!highlightedTaskId) return;
+    const timer = window.setTimeout(() => setHighlightedTaskId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedTaskId, setHighlightedTaskId]);
 
   const handleRetry = useCallback((id: string) => {
     retryTask(id);
@@ -816,14 +895,14 @@ export function WorksPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {/* ── Queue section ──────────────────────────────────────────────── */}
-        {(activeTasks.length > 0 || batchTasks.length > 0) && (
+        {(activeTasks.length > 0 || hasActiveBatchTasks) && (
           <section className="px-4 pt-4 pb-2">
             <div className="flex items-center gap-2 mb-2.5">
               <Loader2 size={12} className="animate-spin text-brand" />
               <span className="text-xs font-medium text-text-secondary">生成队列</span>
-              {(activeTasks.length + (batchTasks.length > 0 ? 1 : 0)) > 0 && (
+              {(activeTasks.length + (hasActiveBatchTasks ? 1 : 0)) > 0 && (
                 <span className="text-[10px] bg-brand/15 text-brand px-1.5 py-0.5 rounded-full">
-                  {activeTasks.length + (batchTasks.length > 0 ? 1 : 0)}
+                  {activeTasks.length + (hasActiveBatchTasks ? 1 : 0)}
                 </span>
               )}
             </div>
@@ -870,6 +949,7 @@ export function WorksPanel() {
                           onPreview={handlePreview}
                           onDelete={handleDelete}
                           onRetry={handleRetry}
+                          highlighted={item.task.id === highlightedTaskId}
                         />
                       ) : (
                         <BatchCardGrid
@@ -890,6 +970,7 @@ export function WorksPanel() {
                           onPreview={handlePreview}
                           onDelete={handleDelete}
                           onRetry={handleRetry}
+                          highlighted={item.task.id === highlightedTaskId}
                         />
                       ) : (
                         <BatchCardList
