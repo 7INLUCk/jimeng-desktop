@@ -2152,7 +2152,7 @@ export function ChatPanel() {
       timestamp: new Date(),
       type: 'submitted-summary',
       data: {
-        kind: 'single',
+        kind: selectedModel === 'kling-o1' ? 'kling' : 'single',
         prompt: effectiveTask.prompt,
         materials: filesToSubmit.map(f => ({ path: f, type: getFileType(f) as 'image' | 'video' | 'audio' })),
         model: selectedModel,
@@ -2171,6 +2171,20 @@ export function ChatPanel() {
       // 可灵 O1 执行路径
       if (selectedModel === 'kling-o1') {
         const imagePaths = filesToSubmit.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f));
+        if (imagePaths.length === 0) {
+          addMessage({
+            id: Date.now().toString() + '_kling_noimgs',
+            role: 'assistant',
+            content: '❌ 可灵 O1 需要上传参考图片',
+            timestamp: new Date(),
+            type: 'error',
+          });
+          setPendingTask(null);
+          setSubmitting(false);
+          setStatusText('');
+          setGuidedStep('logged-in-ready');
+          return;
+        }
         const cost = selectedDuration * 10;
         if (credits.balance < cost) {
           addMessage({
@@ -2203,7 +2217,6 @@ export function ChatPanel() {
           retryCount: 0,
         });
         void window.api.klingGenerate({ imagePaths, prompt: effectiveTask.prompt, duration: selectedDuration, aspectRatio: selectedRatio, submitId });
-        setSelectedFiles([]);
         setInput('');
         showQueueToast('✅ 已加入队列，前往排队区查看进度');
         setPendingTask(null);
