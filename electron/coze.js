@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { makeVideoName } = require('./videoName');
 
-const COZE_PAT = 'pat_S9JEK3AHHUfllNAupHRVNuxw4ZBkqUziZOeGpaUR5meX50Q5iSKZPzHc7b4xBVXk';
+const COZE_PAT = 'pat_L2D1vL70dC5LMMgwhVkiEOcBCn7TIJdUfXYVlk7MkLnSaeDPaegPFnloxdXGcsiK';
 const KLING_O1_WORKFLOW_ID = '7579615132323233807';
 const COZE_HOST = 'api.coze.cn';
 
