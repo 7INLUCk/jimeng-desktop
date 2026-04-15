@@ -27,8 +27,8 @@ const BatchTaskStatus = {
 
 // 批量任务上限
 const MAX_BATCH_TASKS = 20;
-// 即梦并发上限
-const MAX_CONCURRENT_JIMENG = 5;
+// 即梦并发上限（Seedance/Kling 实测约 2 个同时生成）
+const MAX_CONCURRENT_JIMENG = 2;
 
 class BatchTaskManager {
   constructor(dreaminaBin, downloadDir) {
@@ -74,11 +74,23 @@ class BatchTaskManager {
   }
 
   /**
-   * 创建批量任务
+   * 创建批量任务（自动停止并替换旧批次）
    */
   createBatch(batch, tasks) {
     if (tasks.length > MAX_BATCH_TASKS) {
       return { success: false, error: `批量任务上限为 ${MAX_BATCH_TASKS} 个` };
+    }
+
+    // 若有旧批次（不管是否完成），先停止轮询、清空状态
+    if (this.running || this.tasks.length > 0) {
+      this.running = false;
+      if (this.monitorInterval) {
+        clearInterval(this.monitorInterval);
+        this.monitorInterval = null;
+      }
+      for (const timer of this.pollingTimers.values()) clearTimeout(timer);
+      this.pollingTimers.clear();
+      console.log('[批量任务] 已停止旧批次，创建新批次');
     }
 
     const batchId = batch.id || `batch_${Date.now()}`;

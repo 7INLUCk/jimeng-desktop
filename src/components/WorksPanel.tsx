@@ -168,8 +168,9 @@ function BatchQueueSection() {
           {batchTasks.map((t: BatchTaskItem, i: number) => {
             const isDone = ['completed', 'downloaded'].includes(t.status);
             const isFailed = t.status === 'failed';
-            const isActive = ['pending', 'submitted', 'generating'].includes(t.status);
-            const hasQueue = isActive && t.queuePosition != null && t.queuePosition >= 0;
+            const isPending = t.status === 'pending';
+            const isRunning = ['submitted', 'generating'].includes(t.status);
+            const hasQueue = isRunning && t.queuePosition != null && t.queuePosition >= 0;
             return (
               <div key={t.id} className={`flex items-center gap-2 px-2 py-1.5 rounded text-[11px] ${
                 isFailed ? 'bg-error/8' : isDone ? 'bg-success/8' : 'bg-surface-3/50'
@@ -178,13 +179,13 @@ function BatchQueueSection() {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <p className="flex-1 text-text-secondary truncate">{t.prompt}</p>
-                {isActive && <Loader2 size={10} className="animate-spin text-brand flex-shrink-0" />}
+                {isRunning && <Loader2 size={10} className="animate-spin text-brand flex-shrink-0" />}
                 {isDone && <CheckCircle size={10} className="text-success flex-shrink-0" />}
                 {isFailed && <AlertTriangle size={10} className="text-error flex-shrink-0" />}
                 <span className={`text-[10px] font-medium flex-shrink-0 ${
-                  isFailed ? 'text-error' : isDone ? 'text-success' : hasQueue ? 'text-warning' : 'text-brand'
+                  isFailed ? 'text-error' : isDone ? 'text-success' : hasQueue ? 'text-warning' : isPending ? 'text-text-muted' : 'text-brand'
                 }`}>
-                  {isFailed ? '失败' : isDone ? '完成' : hasQueue ? `第${t.queuePosition! + 1}位` : isActive ? '执行中' : '等待'}
+                  {isFailed ? '失败' : isDone ? '完成' : hasQueue ? `第${t.queuePosition! + 1}位` : isPending ? '待提交' : '执行中'}
                 </span>
               </div>
             );

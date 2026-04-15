@@ -2312,14 +2312,14 @@ export function ChatPanel() {
       addMessage({
         id: Date.now().toString() + '_batch_started',
         role: 'assistant',
-        content: `🚀 批量任务已启动！共 ${liveTasks.length} 个任务，正在逐个提交...\n\n结果会自动展示。`,
+        content: `🚀 批量任务已启动！共 ${liveTasks.length} 个任务。\n\n即梦每次最多同时生成 **2 个视频**，我们会自动排队——前 2 个提交后，等它们完成再依次提交后面的。可在作品页查看进度。`,
         timestamp: new Date(),
       });
     } catch (err) {
       addMessage({
         id: Date.now().toString() + '_batch_fail',
         role: 'assistant',
-        content: `❌ 批量任务失败: ${err}`,
+        content: `❌ 批量任务启动失败：${err}\n\n如有旧任务卡住，重新提交即可自动替换。`,
         timestamp: new Date(),
         type: 'error',
       });
@@ -2487,9 +2487,9 @@ export function ChatPanel() {
       if (!createResult.success) throw new Error(createResult.error || '创建批量任务失败');
       const startResult = await window.api.startBatch();
       if (!startResult.success) throw new Error(startResult.error || '启动批量任务失败');
-      addMessage({ id: Date.now().toString() + '_batch_started', role: 'assistant', content: `🚀 批量任务已启动！共 ${mappedTasks.length} 个任务，正在逐个提交...\n\n结果会自动展示。`, timestamp: new Date() });
+      addMessage({ id: Date.now().toString() + '_batch_started', role: 'assistant', content: `🚀 批量任务已启动！共 ${mappedTasks.length} 个任务。即梦每次最多同时生成 2 个，会自动排队逐批提交。`, timestamp: new Date() });
     } catch (err) {
-      addMessage({ id: Date.now().toString() + '_batch_fail', role: 'assistant', content: `❌ 批量任务失败: ${err}`, timestamp: new Date(), type: 'error' });
+      addMessage({ id: Date.now().toString() + '_batch_fail', role: 'assistant', content: `❌ 批量任务启动失败：${err}\n\n如有旧任务卡住，重新提交即可自动替换。`, timestamp: new Date(), type: 'error' });
     } finally {
       setSubmitting(false);
       setStatusText('');
