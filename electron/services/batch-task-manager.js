@@ -516,15 +516,19 @@ class BatchTaskManager {
     }
     this.pollingTimers.clear();
 
-    if (this.batchMetadata) {
-      this.batchMetadata.status = 'completed';
-      this.batchMetadata.completedAt = new Date().toISOString();
-    }
-
     const succeeded = this.tasks.filter(
       t => t.status === BatchTaskStatus.COMPLETED || t.status === BatchTaskStatus.DOWNLOADED
     ).length;
     const failed = this.tasks.filter(t => t.status === BatchTaskStatus.FAILED).length;
+
+    if (this.batchMetadata) {
+      this.batchMetadata.status = 'completed';
+      this.batchMetadata.completedAt = new Date().toISOString();
+      this.batchMetadata.completedTasks = succeeded;
+    }
+
+    // 持久化最终状态（含 running: false）
+    this._persistTasks();
 
     console.log(`[批量任务] 批次完成: ${this.batchMetadata?.name}`);
     console.log(`[批量任务] 结果: ${succeeded} 成功 / ${failed} 失败`);
@@ -639,6 +643,19 @@ class BatchTaskManager {
       this.batchMetadata = data.batch;
       this.tasks = data.tasks || [];
       console.log(`[批量任务] 恢复 ${this.tasks.length} 个任务`);
+
+      // 若所有任务已完成，确保 running=false（修复上次未持久化的情况）
+      const allDone = this.tasks.every(t =>
+        t.status === BatchTaskStatus.COMPLETED ||
+        t.status === BatchTaskStatus.DOWNLOADED ||
+        t.status === BatchTaskStatus.FAILED
+      );
+      if (allDone) {
+        this.running = false;
+        if (this.batchMetadata) this.batchMetadata.status = 'completed';
+        console.log(`[批量任务] 已完成批次（恢复），无需重启轮询`);
+        return;
+      }
 
       // 对仍在生成中的任务（有 submitId）重启轮询和监控
       const activeTasks = this.tasks.filter(

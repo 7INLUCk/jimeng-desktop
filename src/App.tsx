@@ -162,11 +162,40 @@ export default function App() {
         const batchStatus = await window.api.getBatchStatus();
         const restoredTasks = batchStatus.success ? (batchStatus.tasks as import('./store').BatchTaskItem[] | undefined) : undefined;
         if (restoredTasks && restoredTasks.length > 0) {
-          const { setBatchTasks, setBatchInfo, taskMode, setTaskMode, setActivePanel } = useStore.getState();
-          setBatchTasks(restoredTasks);
-          if (batchStatus.batch) setBatchInfo(batchStatus.batch);
-          if (taskMode !== 'batch') setTaskMode('batch');
-          setActivePanel('works');
+          const store = useStore.getState();
+          store.setBatchTasks(restoredTasks);
+          if (batchStatus.batch) store.setBatchInfo(batchStatus.batch);
+          if (store.taskMode !== 'batch') store.setTaskMode('batch');
+          store.setActivePanel('works');
+
+          // 若所有任务已完成（app 上次运行期间完成但未记录到 batchHistory），补录一条
+          const allDone = restoredTasks.every(t =>
+            t.status === 'completed' || t.status === 'downloaded' || t.status === 'failed'
+          );
+          const batch = batchStatus.batch as any;
+          if (allDone && batch && !store.batchHistory.find(h => h.id === batch.id)) {
+            const succeeded = restoredTasks.filter(t => t.status === 'completed' || t.status === 'downloaded').length;
+            store.addBatchHistory({
+              id: batch.id,
+              name: batch.name || '批量任务',
+              description: batch.description || '',
+              model: restoredTasks[0]?.model ?? '',
+              duration: restoredTasks[0]?.duration ?? 5,
+              aspectRatio: restoredTasks[0]?.aspectRatio ?? '16:9',
+              sharedMaterials: (restoredTasks[0]?.materials ?? []).map((m: any) => ({ path: m.path, type: m.type })),
+              totalTasks: restoredTasks.length,
+              completedTasks: succeeded,
+              tasks: restoredTasks.map(bt => ({
+                index: bt.index,
+                prompt: bt.prompt,
+                status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
+                outputFile: bt.outputFile,
+                error: bt.error,
+              })),
+              createdAt: new Date(batch.createdAt).getTime(),
+              completedAt: Date.now(),
+            });
+          }
         }
       } catch (err) {
         console.error('[Init] getBatchStatus failed:', err);
