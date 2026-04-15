@@ -145,18 +145,18 @@ function QueueCard({ task }: { task: TaskRecord }) {
 
       {/* Material thumbnails */}
       {task.materials?.length > 0 && (
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {task.materials.slice(0, 4).map((m, i) => (
-            <div key={i} className="w-8 h-8 rounded overflow-hidden border border-border-subtle flex-shrink-0 bg-surface-3">
+            <div key={i} className="w-10 h-10 rounded-md overflow-hidden border border-border-subtle flex-shrink-0 bg-surface-3">
               {m.type === 'image'
                 ? <img src={localFileUrlSync(m.path)} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center"><Film size={10} className="text-text-disabled" /></div>
+                : <div className="w-full h-full flex items-center justify-center"><Film size={12} className="text-text-disabled" /></div>
               }
             </div>
           ))}
           {task.materials.length > 4 && (
-            <div className="w-8 h-8 rounded border border-border-subtle flex items-center justify-center flex-shrink-0 bg-surface-3">
-              <span className="text-[9px] text-text-disabled">+{task.materials.length - 4}</span>
+            <div className="w-10 h-10 rounded-md border border-border-subtle flex items-center justify-center flex-shrink-0 bg-surface-3">
+              <span className="text-[10px] text-text-disabled">+{task.materials.length - 4}</span>
             </div>
           )}
         </div>
@@ -210,11 +210,13 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry }: {
       <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {task.thumbnailUrl ? (
           <img src={toPlayable(task.thumbnailUrl)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+        ) : isDone && playUrl ? (
+          <video src={playUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted preload="metadata" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {isFailed
-              ? <AlertTriangle size={22} className="text-error/50" />
-              : <Film size={22} className="text-text-disabled" />}
+              ? <AlertTriangle size={24} className="text-error/50" />
+              : <Film size={24} className="text-text-disabled" />}
           </div>
         )}
 
@@ -252,20 +254,20 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry }: {
       </div>
 
       {/* Info */}
-      <div className="p-2.5">
-        <p className="text-[11px] text-text-primary line-clamp-2 leading-relaxed">{task.prompt || '无提示词'}</p>
-        <div className="flex items-center justify-between mt-1.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-text-disabled">{modelShort(task.model)}</span>
-            <span className="text-[10px] text-text-disabled">·</span>
-            <span className="text-[10px] text-text-disabled">{task.duration}s</span>
+      <div className="p-3">
+        <p className="text-xs text-text-primary line-clamp-2 leading-relaxed">{task.prompt || '无提示词'}</p>
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-text-disabled">{modelShort(task.model)}</span>
+            <span className="text-[11px] text-text-disabled">·</span>
+            <span className="text-[11px] text-text-disabled">{task.duration}s</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => navigator.clipboard.writeText(task.prompt)} className="p-0.5 text-text-disabled hover:text-brand transition-colors" title="复制提示词">
-              <Copy size={10} />
+            <button onClick={() => navigator.clipboard.writeText(task.prompt)} className="p-1 text-text-disabled hover:text-brand transition-colors" title="复制提示词">
+              <Copy size={11} />
             </button>
-            <button onClick={() => onDelete(task.id)} className="p-0.5 text-text-disabled hover:text-error transition-colors" title="删除">
-              <Trash2 size={10} />
+            <button onClick={() => onDelete(task.id)} className="p-1 text-text-disabled hover:text-error transition-colors" title="删除">
+              <Trash2 size={11} />
             </button>
           </div>
         </div>
@@ -301,14 +303,16 @@ function SingleCardList({ task, onPreview, onDelete, onRetry }: {
   }, [task]);
 
   return (
-    <div className="group flex items-center gap-3 bg-surface-1 border border-border-subtle rounded-md p-2.5 hover:border-border transition-colors">
+    <div className="group flex items-center gap-3 bg-surface-1 border border-border-subtle rounded-md p-3 hover:border-border transition-colors">
       {/* Thumbnail */}
-      <div className="w-16 h-10 rounded overflow-hidden bg-surface-2 flex-shrink-0 relative">
+      <div className="w-20 h-14 rounded-md overflow-hidden bg-surface-2 flex-shrink-0 relative">
         {task.thumbnailUrl
           ? <img src={toPlayable(task.thumbnailUrl)} alt="" className="w-full h-full object-cover" loading="lazy" />
-          : <div className="w-full h-full flex items-center justify-center">
-              {isFailed ? <AlertTriangle size={14} className="text-error/50" /> : <Film size={14} className="text-text-disabled" />}
-            </div>
+          : !isFailed && playUrl
+            ? <video src={playUrl} className="w-full h-full object-cover" muted preload="metadata" />
+            : <div className="w-full h-full flex items-center justify-center">
+                {isFailed ? <AlertTriangle size={16} className="text-error/50" /> : <Film size={16} className="text-text-disabled" />}
+              </div>
         }
         {isFailed && <div className="absolute inset-0 bg-error/20" />}
       </div>
@@ -316,9 +320,9 @@ function SingleCardList({ task, onPreview, onDelete, onRetry }: {
       {/* Text */}
       <div className="flex-1 min-w-0">
         <p className="text-xs text-text-primary line-clamp-1">{task.prompt || '无提示词'}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={`text-[10px] ${STATUS_COLOR[task.status]}`}>{STATUS_LABEL[task.status]}</span>
-          <span className="text-[10px] text-text-disabled">{modelShort(task.model)} · {task.duration}s · {fmtDate(task.createdAt)}</span>
+        <div className="flex items-center gap-2 mt-1">
+          <span className={`text-[11px] ${STATUS_COLOR[task.status]}`}>{STATUS_LABEL[task.status]}</span>
+          <span className="text-[11px] text-text-disabled">{modelShort(task.model)} · {task.duration}s · {fmtDate(task.createdAt)}</span>
         </div>
         {isFailed && (
           <p className={`text-[10px] mt-0.5 ${CATEGORY_COLORS[parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').category].text}`}>
@@ -392,19 +396,19 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
       </div>
 
       {/* Info */}
-      <div className="p-2.5">
-        <p className="text-[12px] font-medium text-text-primary truncate">{record.name}</p>
+      <div className="p-3">
+        <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
         <div className="flex items-center gap-1 mt-1">
-          <span className="text-[10px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
+          <span className="text-[11px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
         </div>
-        <div className="flex items-center gap-1 mt-1">
-          <CheckCircle size={10} className="text-success" />
-          <span className="text-[10px] text-success">{doneCount}</span>
+        <div className="flex items-center gap-1 mt-1.5">
+          <CheckCircle size={11} className="text-success" />
+          <span className="text-[11px] text-success">{doneCount}</span>
           {failCount > 0 && <>
-            <AlertTriangle size={10} className="text-error ml-1" />
-            <span className="text-[10px] text-error">{failCount}</span>
+            <AlertTriangle size={11} className="text-error ml-1" />
+            <span className="text-[11px] text-error">{failCount}</span>
           </>}
-          <span className="text-[10px] text-text-disabled ml-auto">{fmtDate(record.completedAt)}</span>
+          <span className="text-[11px] text-text-disabled ml-auto">{fmtDate(record.completedAt)}</span>
         </div>
       </div>
     </div>
@@ -730,7 +734,7 @@ export function WorksPanel() {
               )}
             </div>
 
-            <div className={`grid gap-2.5 ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(220px,1fr))]' : 'grid-cols-1'}`}>
+            <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : 'grid-cols-1'}`}>
               {visibleQueue.map(t => <QueueCard key={t.id} task={t} />)}
             </div>
           </section>
@@ -762,7 +766,7 @@ export function WorksPanel() {
                 </h3>
 
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
                     {group.items.map((item, i) =>
                       item.kind === 'single' ? (
                         <SingleCardGrid

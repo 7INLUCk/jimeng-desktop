@@ -160,33 +160,33 @@ function TaskCard({ task }: { task: TaskRecord }) {
   const showProgressBar = (isKling && isGenerating) || (!isKling && isGenerating && displayProgress > 0);
 
   return (
-    <div className={`bg-surface-1 border rounded-md p-3 transition-colors ${
+    <div className={`bg-surface-1 border rounded-lg p-3.5 transition-colors ${
       isCompleted ? 'border-success/30' :
       isFailed    ? 'border-error/30'   :
       'border-border'
     }`}>
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3">
         {/* Icon */}
-        <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
           isCompleted ? 'bg-success/10' :
           isFailed    ? 'bg-error/10'   :
           'bg-surface-2'
         }`}>
           {task.type === 'image'
-            ? <ImageIcon size={16} className={isFailed ? 'text-error' : 'text-text-muted'} />
-            : <Film      size={16} className={isFailed ? 'text-error' : 'text-text-muted'} />
+            ? <ImageIcon size={18} className={isFailed ? 'text-error' : 'text-text-muted'} />
+            : <Film      size={18} className={isFailed ? 'text-error' : 'text-text-muted'} />
           }
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-text-primary line-clamp-2 leading-tight">{task.prompt}</p>
+          <p className="text-sm text-text-primary line-clamp-2 leading-snug">{task.prompt}</p>
 
           {/* Status row */}
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {(isQueued || isGenerating) && <Loader2 size={12} className="animate-spin text-brand" />}
-            {isCompleted && <CheckCircle size={12} className="text-success" />}
-            {isFailed    && <AlertTriangle size={12} className="text-error" />}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {(isQueued || isGenerating) && <Loader2 size={13} className="animate-spin text-brand" />}
+            {isCompleted && <CheckCircle size={13} className="text-success" />}
+            {isFailed    && <AlertTriangle size={13} className="text-error" />}
 
             <span className={`text-xs font-medium ${statusColor[task.status]}`}>
               {statusLabel[task.status]}
@@ -201,11 +201,11 @@ function TaskCard({ task }: { task: TaskRecord }) {
 
             {/* Kling: stage message */}
             {isKling && isGenerating && task.statusMessage && (
-              <span className="text-xs text-text-muted truncate max-w-[160px]">{task.statusMessage}</span>
+              <span className="text-xs text-text-muted truncate max-w-[180px]">{task.statusMessage}</span>
             )}
 
             {isFailed && task.error && (
-              <span className="text-xs text-error/70 truncate max-w-[160px]">{task.error}</span>
+              <span className="text-xs text-error/70 truncate max-w-[180px]">{task.error}</span>
             )}
           </div>
 
