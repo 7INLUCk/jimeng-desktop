@@ -1584,10 +1584,29 @@ export function ChatPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Structured task params
-  const [selectedModel, setSelectedModel] = useState('seedance2.0fast');
-  const [selectedDuration, setSelectedDuration] = useState(5);
-  const [selectedRatio, setSelectedRatio] = useState('9:16');
+  // Structured task params — 持久化到 localStorage，重启后恢复用户上次选择
+  const [selectedModel, setSelectedModelRaw] = useState<string>(() => {
+    try { return localStorage.getItem('vidclaw_toolbar_model') || 'seedance2.0fast'; } catch { return 'seedance2.0fast'; }
+  });
+  const [selectedDuration, setSelectedDurationRaw] = useState<number>(() => {
+    try { return Number(localStorage.getItem('vidclaw_toolbar_duration')) || 5; } catch { return 5; }
+  });
+  const [selectedRatio, setSelectedRatioRaw] = useState<string>(() => {
+    try { return localStorage.getItem('vidclaw_toolbar_ratio') || '9:16'; } catch { return '9:16'; }
+  });
+
+  const setSelectedModel = (v: string) => {
+    try { localStorage.setItem('vidclaw_toolbar_model', v); } catch {}
+    setSelectedModelRaw(v);
+  };
+  const setSelectedDuration = (v: number) => {
+    try { localStorage.setItem('vidclaw_toolbar_duration', String(v)); } catch {}
+    setSelectedDurationRaw(v);
+  };
+  const setSelectedRatio = (v: string) => {
+    try { localStorage.setItem('vidclaw_toolbar_ratio', v); } catch {}
+    setSelectedRatioRaw(v);
+  };
 
   // ── Auto-duration: Seedance + reference videos ───────────────────────────
   // When reference videos are added/removed while using a SeedDance model,
