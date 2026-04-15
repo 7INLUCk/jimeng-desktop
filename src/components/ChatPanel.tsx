@@ -2034,6 +2034,7 @@ export function ChatPanel() {
         type: 'kling-confirm',
         data: { prompt, imagePaths: imageFiles, duration: selectedDuration, aspectRatio: selectedRatio, cost },
       });
+      setSelectedFiles([]);
       setInput('');
       return;
     }
