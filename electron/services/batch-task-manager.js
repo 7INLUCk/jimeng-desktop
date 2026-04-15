@@ -164,7 +164,7 @@ class BatchTaskManager {
     }
     // 停止所有轮询
     for (const [submitId, timer] of this.pollingTimers) {
-      clearInterval(timer);
+      clearTimeout(timer);
     }
     this.pollingTimers.clear();
     console.log('[批量任务] 已停止');
@@ -323,58 +323,88 @@ class BatchTaskManager {
 
   /**
    * 开始轮询单个任务
+   * - 首次 5s 后快速取排队位置
+   * - 排队态：每 180s（与单任务对齐，Seedance 队列慢）
+   * - 连续失败 10 次后标记为 failed，避免僵尸任务
    */
   _startTaskPolling(task) {
     if (this.pollingTimers.has(task.submitId)) return;
 
-    const timer = setInterval(async () => {
+    const POLL_INITIAL   =   5_000;
+    const POLL_QUEUED    = 180_000;
+    const POLL_FALLBACK  =  30_000;
+    const MAX_FAILURES   = 10;
+
+    let failCount = 0;
+    let timeoutHandle = null;
+
+    const doPoll = async () => {
       try {
         const result = await this._callCli(['query_result', '--submit_id=' + task.submitId], 30000);
-        
+
         if (!result.success) {
-          console.warn(`[批量任务轮询] 查询失败: ${result.error}`);
+          failCount++;
+          console.warn(`[批量任务轮询] 查询失败(${failCount}/${MAX_FAILURES}): ${result.error}`);
+          if (failCount >= MAX_FAILURES) {
+            this.pollingTimers.delete(task.submitId);
+            task.status = BatchTaskStatus.FAILED;
+            task.error = `轮询失败: ${result.error}`;
+            this._persistTasks();
+            this._notifyTaskUpdate(task);
+            await this._submitNextTask();
+            return;
+          }
+          timeoutHandle = setTimeout(doPoll, POLL_FALLBACK);
+          this.pollingTimers.set(task.submitId, timeoutHandle);
           return;
         }
 
+        failCount = 0; // 成功重置计数
+
         const data = this._parseJson(result.stdout);
-        if (!data) return;
+        if (!data) {
+          timeoutHandle = setTimeout(doPoll, POLL_FALLBACK);
+          this.pollingTimers.set(task.submitId, timeoutHandle);
+          return;
+        }
 
         const status = data.gen_status || data.status || 'unknown';
         const queueInfo = data.queue_info || {};
         const queueIdx = queueInfo.queue_idx ?? -1;
 
+        console.log(`[批量任务轮询] task ${task.index} gen_status=${status} queue_idx=${queueIdx}`);
+
         if (status === 'success') {
-          clearInterval(timer);
           this.pollingTimers.delete(task.submitId);
-
-          // 下载
           await this._downloadTask(task);
-
-          // 继续下一个
           await this._submitNextTask();
         } else if (status === 'failed') {
-          clearInterval(timer);
           this.pollingTimers.delete(task.submitId);
-
           task.status = BatchTaskStatus.FAILED;
           task.error = data.error || '生成失败';
           this._persistTasks();
           this._notifyTaskUpdate(task);
-
           await this._submitNextTask();
         } else {
-          // 仍在排队/生成中，更新队列位置
+          // 排队/生成中，更新队列位置并按节奏继续轮询
           if (queueIdx >= 0 && task.queuePosition !== queueIdx) {
             task.queuePosition = queueIdx;
+            this._persistTasks();
             this._notifyTaskUpdate(task);
           }
+          const nextInterval = queueIdx >= 0 ? POLL_QUEUED : POLL_FALLBACK;
+          timeoutHandle = setTimeout(doPoll, nextInterval);
+          this.pollingTimers.set(task.submitId, timeoutHandle);
         }
       } catch (e) {
         console.error(`[批量任务轮询] 异常: ${e.message}`);
+        timeoutHandle = setTimeout(doPoll, POLL_FALLBACK);
+        this.pollingTimers.set(task.submitId, timeoutHandle);
       }
-    }, 5000);
+    };
 
-    this.pollingTimers.set(task.submitId, timer);
+    timeoutHandle = setTimeout(doPoll, POLL_INITIAL);
+    this.pollingTimers.set(task.submitId, timeoutHandle);
   }
 
   /**
@@ -461,7 +491,7 @@ class BatchTaskManager {
     }
     // 停止所有轮询
     for (const [submitId, timer] of this.pollingTimers) {
-      clearInterval(timer);
+      clearTimeout(timer);
     }
     this.pollingTimers.clear();
 
@@ -501,7 +531,7 @@ class BatchTaskManager {
     const task = this.tasks[idx];
     // 停止该任务的轮询（如果有）
     if (task.submitId && this.pollingTimers.has(task.submitId)) {
-      clearInterval(this.pollingTimers.get(task.submitId));
+      clearTimeout(this.pollingTimers.get(task.submitId));
       this.pollingTimers.delete(task.submitId);
     }
     this.tasks.splice(idx, 1);
