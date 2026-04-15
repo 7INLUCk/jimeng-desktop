@@ -751,9 +751,10 @@ function BatchCardList({ record, onClick }: { record: BatchHistoryRecord; onClic
   return (
     <div
       onClick={onClick}
-      className="group flex items-center gap-3 bg-surface-1 border border-border-subtle rounded-md p-2.5 hover:border-brand cursor-pointer transition-colors"
+      className="group flex items-center gap-3 bg-surface-1 border border-[rgba(255,255,255,0.08)] rounded-xl p-2.5
+        hover:border-[rgba(255,255,255,0.16)] cursor-pointer transition-all duration-150 active:scale-[0.97]"
     >
-      <div className="w-10 h-10 rounded-md bg-surface-3 flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded-lg bg-surface-3 flex items-center justify-center flex-shrink-0">
         <Layers size={18} className="text-brand" />
       </div>
       <div className="flex-1 min-w-0">
@@ -1086,23 +1087,28 @@ export function WorksPanel() {
 
         {/* ── Works section ──────────────────────────────────────────────── */}
         {allWorks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center px-6">
-            <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center mb-3">
-              <Film size={24} className="text-text-disabled" />
+          <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+            <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
+              <Film size={32} className="text-text-disabled" />
             </div>
-            <p className="text-sm font-medium text-text-secondary">暂无作品</p>
-            <p className="text-[11px] text-text-muted mt-1">生成完成的视频会出现在这里</p>
+            <p className="text-sm font-semibold text-text-secondary">还没有作品</p>
+            <p className="text-[11px] text-text-muted mt-1.5">生成完成的视频会在这里展示</p>
+            <button
+              className="mt-4 px-4 py-1.5 rounded-lg bg-brand/15 text-brand text-xs hover:bg-brand/25 transition-colors active:scale-[0.97]"
+              onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-chat'))}
+            >
+              去创作第一个视频
+            </button>
           </div>
         ) : (
           <div className="px-4 pb-6 space-y-6">
             {groupedWorks.map(group => (
               <section key={group.label}>
-                <h3 className="text-[11px] font-medium text-text-muted mb-2.5 flex items-center gap-1.5">
-                  {group.label}
-                  <span className="text-[10px] text-text-disabled bg-surface-2 px-1.5 py-0.5 rounded-full">
-                    {group.items.length}
-                  </span>
-                </h3>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-[11px] font-medium text-text-muted flex-shrink-0">{group.label}</span>
+                  <div className="flex-1 h-px bg-[rgba(255,255,255,0.06)]" />
+                  <span className="text-[10px] text-text-disabled flex-shrink-0">{group.items.length}</span>
+                </div>
 
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
