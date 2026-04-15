@@ -2367,6 +2367,69 @@ export function ChatPanel() {
     setStatusText('⏳ 正在创建批量任务...');
 
     try {
+      // 可灵 O1 批量执行路径：逐条调用 klingGenerate
+      if (liveTasks[0]?.model === 'kling-o1') {
+        const imagePaths = (liveTasks[0]?.materials ?? [])
+          .filter(m => m.type === 'image')
+          .map(m => m.path);
+        if (imagePaths.length === 0) {
+          addMessage({
+            id: Date.now().toString() + '_kling_noimgs',
+            role: 'assistant',
+            content: '❌ 可灵 O1 批量任务需要上传参考图片',
+            timestamp: new Date(),
+            type: 'error',
+          });
+          setSubmitting(false);
+          setStatusText('');
+          setGuidedStep('logged-in-ready');
+          return;
+        }
+        const totalCost = liveTasks.reduce((sum, t) => sum + (t.duration * 10), 0);
+        if (credits.balance < totalCost) {
+          addMessage({
+            id: Date.now().toString() + '_credits_low',
+            role: 'assistant',
+            content: `❌ 积分不足。${liveTasks.length} 条任务共需 ${totalCost} 积分，当前余额 ${credits.balance}`,
+            timestamp: new Date(),
+            type: 'error',
+          });
+          setSubmitting(false);
+          setStatusText('');
+          setGuidedStep('logged-in-ready');
+          return;
+        }
+        deductCredits(totalCost, `可灵 O1 · ${liveTasks.length} 个批量任务`);
+        liveTasks.forEach((t, i) => {
+          const submitId = 'kling_batch_' + Date.now() + '_' + i;
+          addTask({
+            id: 'task_' + Date.now() + '_' + i,
+            submitId,
+            prompt: t.prompt,
+            type: 'video',
+            status: 'generating',
+            progress: 0,
+            statusMessage: '准备中...',
+            model: 'kling-o1',
+            duration: t.duration,
+            materials: imagePaths.map(p => ({ path: p, type: 'image' as const })),
+            createdAt: Date.now() + i,
+            retryCount: 0,
+          });
+          void window.api.klingGenerate({ imagePaths, prompt: t.prompt, duration: t.duration, aspectRatio: t.aspectRatio, submitId });
+        });
+        addMessage({
+          id: Date.now().toString() + '_kling_batch_started',
+          role: 'assistant',
+          content: `🚀 可灵批量任务已启动！共 ${liveTasks.length} 个任务，消耗 ${totalCost} 积分。可在作品页查看进度。`,
+          timestamp: new Date(),
+        });
+        setSubmitting(false);
+        setStatusText('');
+        setGuidedStep('logged-in-ready');
+        return;
+      }
+
       const batch = {
         id: 'batch_' + Date.now(),
         name: batchData.batchName || '批量任务',
