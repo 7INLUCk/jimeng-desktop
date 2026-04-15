@@ -664,53 +664,78 @@ function SingleCardList({ task, onPreview, onDelete, onRetry, highlighted = fals
 function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClick: () => void }) {
   const doneCount = record.tasks.filter(t => t.status !== 'failed').length;
   const failCount = record.tasks.filter(t => t.status === 'failed').length;
-
-  // Show first completed output as "cover" if available
   const cover = record.tasks.find(t => t.outputFile)?.outputFile;
 
   return (
+    // Outer wrapper with bottom padding to show stacked layers
     <div
+      className="relative pb-2 pr-2 cursor-pointer group"
       onClick={onClick}
-      className="group bg-surface-1 border border-border-subtle rounded-md overflow-hidden hover:border-brand cursor-pointer transition-all hover:-translate-y-0.5"
     >
-      {/* Cover thumbnail */}
-      <div className="aspect-video bg-surface-2 relative overflow-hidden">
-        {cover ? (
-          <video src={toPlayable(cover)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-            <Layers size={28} className="text-text-disabled" />
-          </div>
-        )}
-        {/* Task count badge */}
-        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[10px] text-white/90">
-          {record.totalTasks} 个视频
-        </div>
-        {failCount > 0 && (
-          <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-error/70 text-[10px] text-white">
-            {failCount} 失败
-          </div>
-        )}
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-brand/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <span className="text-xs text-white bg-brand/80 px-3 py-1 rounded-full">查看详情</span>
-        </div>
-      </div>
+      {/* Layer 3 — back */}
+      <div
+        className="absolute inset-0 bg-surface-1 border border-[rgba(255,255,255,0.05)] rounded-2xl opacity-30"
+        style={{ transform: 'translate(6px, 6px) scale(0.93)', zIndex: 0 }}
+      />
+      {/* Layer 2 — mid */}
+      <div
+        className="absolute inset-0 bg-surface-1 border border-[rgba(255,255,255,0.07)] rounded-2xl opacity-60"
+        style={{ transform: 'translate(3px, 3px) scale(0.96)', zIndex: 1 }}
+      />
 
-      {/* Info */}
-      <div className="p-3">
-        <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-[11px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
+      {/* Layer 1 — front (actual card) */}
+      <div
+        className="relative bg-surface-1 border border-[rgba(255,255,255,0.10)] rounded-2xl overflow-hidden
+          transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+        style={{ zIndex: 2 }}
+      >
+        {/* Cover thumbnail */}
+        <div className="aspect-video bg-surface-2 relative overflow-hidden">
+          {cover ? (
+            <video
+              src={toPlayable(cover)}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              muted
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+              <Layers size={28} className="text-text-disabled" />
+            </div>
+          )}
+
+          {/* Task count badge */}
+          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/90">
+            {record.totalTasks} 个视频
+          </div>
+          {failCount > 0 && (
+            <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-error/70 text-[10px] text-white">
+              {failCount} 失败
+            </div>
+          )}
+
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-brand/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <span className="text-xs text-white bg-brand/80 px-3 py-1 rounded-full">查看详情</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 mt-1.5">
-          <CheckCircle size={11} className="text-success" />
-          <span className="text-[11px] text-success">{doneCount}</span>
-          {failCount > 0 && <>
-            <AlertTriangle size={11} className="text-error ml-1" />
-            <span className="text-[11px] text-error">{failCount}</span>
-          </>}
-          <span className="text-[11px] text-text-disabled ml-auto">{fmtDate(record.completedAt)}</span>
+
+        {/* Info */}
+        <div className="p-3">
+          <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-[11px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1.5">
+            <CheckCircle size={11} className="text-success" />
+            <span className="text-[11px] text-success">{doneCount}</span>
+            {failCount > 0 && (
+              <>
+                <AlertTriangle size={11} className="text-error ml-1" />
+                <span className="text-[11px] text-error">{failCount}</span>
+              </>
+            )}
+            <span className="text-[11px] text-text-disabled ml-auto">{fmtDate(record.completedAt)}</span>
+          </div>
         </div>
       </div>
     </div>
