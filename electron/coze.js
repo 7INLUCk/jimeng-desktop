@@ -65,35 +65,21 @@ async function uploadFileToCoze(filePath) {
     throw new Error(`上传失败: ${JSON.stringify(resp).slice(0, 200)}`);
   }
 
-  const fileId = resp.data.id;
-
-  // Retrieve file info to get the signed CDN URL
-  const infoResp = await cozeRequest({
-    hostname: COZE_HOST,
-    path: `/v1/files/${fileId}`,
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${COZE_PAT}` },
-  });
-
-  const fileInfo = JSON.parse(infoResp.body);
-  const url = fileInfo.data?.url;
-  if (!url) {
-    throw new Error(`获取文件URL失败: ${infoResp.body.slice(0, 200)}`);
-  }
-
-  return url;
+  // Coze 不提供获取 URL 的 API，直接返回 file_id
+  // Workflow 内部会自动处理 file_id
+  return resp.data.id;
 }
 
 // ── Step 2: Call Kling O1 workflow (SSE) ─────────────────────────────────────
 
-function callKlingWorkflow(imageUrls, prompt, duration, aspectRatio, onProgress) {
+function callKlingWorkflow(fileIds, prompt, duration, aspectRatio, onProgress) {
   return new Promise((resolve) => {
     const bodyStr = JSON.stringify({
       workflow_id: KLING_O1_WORKFLOW_ID,
       parameters: {
         aspect_ratio: aspectRatio || '16:9',
         duration: String(duration || 5),
-        image: imageUrls,
+        image: fileIds,  // 直接传 file_id，Coze 内部会处理
         prompt: prompt || '',
       },
     });
@@ -254,12 +240,12 @@ async function klingGenerate({ imagePaths, prompt, duration, aspectRatio, downlo
 
   // 1. Upload images in parallel
   if (onProgress) onProgress(`上传图片 (共 ${imagePaths.length} 张)...`);
-  let imageUrls;
+  let fileIds;
   try {
-    imageUrls = await Promise.all(imagePaths.map(async (p, i) => {
-      const url = await uploadFileToCoze(p);
-      console.log(`[Coze] 图片 ${i + 1} 上传完成: ${url.slice(0, 60)}...`);
-      return url;
+    fileIds = await Promise.all(imagePaths.map(async (p, i) => {
+      const id = await uploadFileToCoze(p);
+      console.log(`[Coze] 图片 ${i + 1} 上传完成: file_id=${id}`);
+      return id;
     }));
   } catch (err) {
     console.error('[Coze] 图片上传失败:', err.message);
@@ -268,7 +254,7 @@ async function klingGenerate({ imagePaths, prompt, duration, aspectRatio, downlo
 
   // 2. Call workflow
   if (onProgress) onProgress('已提交可灵 O1，等待生成...');
-  const workflowResult = await callKlingWorkflow(imageUrls, prompt, duration, aspectRatio, onProgress);
+  const workflowResult = await callKlingWorkflow(fileIds, prompt, duration, aspectRatio, onProgress);
   if (!workflowResult.success) {
     console.error('[Coze] 工作流失败:', workflowResult.error);
     return workflowResult;
