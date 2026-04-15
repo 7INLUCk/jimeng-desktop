@@ -235,13 +235,21 @@ function QueueCard({ task }: { task: TaskRecord }) {
       ? `第 ${task.queuePosition + 1} 位`
       : STATUS_LABEL[task.status];
 
+  // Dot color
+  const dotColor = isActive
+    ? 'bg-brand animate-pulse'
+    : isQueued
+      ? 'bg-warning'
+      : task.status === 'failed'
+        ? 'bg-error'
+        : 'bg-success';
+
   return (
-    <div className="bg-surface-2 border border-border rounded-md p-3 flex flex-col gap-2 min-w-0">
-      {/* Top row: status + params */}
+    <div className="bg-surface-2 border border-[rgba(255,255,255,0.08)] rounded-xl p-3 flex flex-col gap-2 min-w-0 max-w-[320px] active:scale-[0.97] transition-transform duration-150">
+      {/* Top row: status dot + label + params */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {(isActive) && <Loader2 size={11} className="animate-spin text-brand flex-shrink-0" />}
-          {isQueued && <Clock size={11} className="text-warning flex-shrink-0" />}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
           <span className={`text-[11px] font-medium ${STATUS_COLOR[task.status]}`}>
             {statusText}
           </span>
@@ -263,7 +271,7 @@ function QueueCard({ task }: { task: TaskRecord }) {
       {task.materials?.length > 0 && (
         <div className="flex gap-1.5">
           {task.materials.slice(0, 4).map((m, i) => (
-            <div key={i} className="w-10 h-10 rounded-md overflow-hidden border border-border-subtle flex-shrink-0 bg-surface-3">
+            <div key={i} className="w-10 h-10 rounded-lg overflow-hidden border border-[rgba(255,255,255,0.08)] flex-shrink-0 bg-surface-3">
               {m.type === 'image'
                 ? <img src={localFileUrlSync(m.path)} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center"><Film size={12} className="text-text-disabled" /></div>
@@ -271,21 +279,26 @@ function QueueCard({ task }: { task: TaskRecord }) {
             </div>
           ))}
           {task.materials.length > 4 && (
-            <div className="w-10 h-10 rounded-md border border-border-subtle flex items-center justify-center flex-shrink-0 bg-surface-3">
+            <div className="w-10 h-10 rounded-lg border border-[rgba(255,255,255,0.08)] flex items-center justify-center flex-shrink-0 bg-surface-3">
               <span className="text-[10px] text-text-disabled">+{task.materials.length - 4}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Progress bar */}
+      {/* Progress bar + percentage */}
       {(isActive || isKling) && (
         <div className="space-y-1">
-          <div className="h-1 bg-surface-3 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand rounded-full transition-all duration-[3000ms] ease-linear"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-0.5 bg-surface-3 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-brand rounded-full transition-[width] duration-[3000ms] ease-linear"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-text-disabled flex-shrink-0 w-7 text-right">
+              {progress}%
+            </span>
           </div>
           {task.statusMessage && (
             <p className="text-[10px] text-text-disabled">{task.statusMessage}</p>
