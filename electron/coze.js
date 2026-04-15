@@ -79,7 +79,7 @@ function callKlingWorkflow(fileIds, prompt, duration, aspectRatio, onProgress) {
       parameters: {
         aspect_ratio: aspectRatio || '16:9',
         duration: String(duration || 5),
-        image: fileIds,  // 直接传 file_id，Coze 内部会处理
+        image: fileIds.map(id => ({ file_id: id })),
         prompt: prompt || '',
       },
     });
