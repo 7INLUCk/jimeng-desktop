@@ -972,8 +972,6 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
             </>
           ) : (
             <>
-              {/* Placeholder aligns with copy slot in SingleCardGrid */}
-              <span className="invisible p-1.5"><Copy size={12} /></span>
               {/* Open folder (only when outputs exist) */}
               {cover ? (
                 <button
