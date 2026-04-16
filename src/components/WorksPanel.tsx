@@ -922,15 +922,15 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
             </div>
           )}
 
-          {/* Task count badge */}
-          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/90">
-            {record.totalTasks} 个视频
-          </div>
-          {failCount > 0 && (
-            <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-error/70 text-[10px] text-white">
-              {failCount} 失败
+          {/* Status badge — ✓N (✗N only when failures exist) */}
+          <div className="absolute top-2 left-2 flex items-center gap-1">
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/90">
+              <span className="text-success">✓</span>{doneCount}
+              {failCount > 0 && (
+                <><span className="text-error ml-1">✗</span>{failCount}</>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-brand/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -948,18 +948,8 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
           <p className="text-[11px] text-text-muted mt-1">
             {modelName(record.model)} · {record.duration}s · {record.aspectRatio}
           </p>
-          {/* Row 3: counts + date */}
-          <div className="flex items-center gap-1 mt-0.5">
-            <CheckCircle size={10} className="text-success flex-shrink-0" />
-            <span className="text-[11px] text-success">{doneCount}</span>
-            {failCount > 0 && (
-              <>
-                <AlertTriangle size={10} className="text-error ml-1 flex-shrink-0" />
-                <span className="text-[11px] text-error">{failCount}</span>
-              </>
-            )}
-            <span className="text-[11px] text-text-disabled ml-auto">{fmtDate(record.completedAt)}</span>
-          </div>
+          {/* Row 3: date — mirrors SingleCardGrid */}
+          <p className="text-[11px] text-text-disabled mt-0.5">{fmtDate(record.completedAt)}</p>
         </div>
 
         {/* Action row — same height as SingleCardGrid's action row */}
