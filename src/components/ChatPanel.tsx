@@ -4062,7 +4062,7 @@ function KlingConfirmCard({ data, onConfirm, onCancel, onSaveAsSkill }: {
           <button
             onClick={onConfirm}
             disabled={!canAfford}
-            className="flex-1 py-2 bg-brand hover:bg-brand/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-all"
+            className="flex-1 py-2 bg-brand hover:bg-brand/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-medium rounded-lg transition-all"
           >
             确认生成
           </button>
