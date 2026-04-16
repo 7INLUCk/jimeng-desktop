@@ -544,21 +544,16 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
           </div>
         )}
 
-        {/* Duration / status badges — top left */}
+        {/* Top-left badges: mode | quantity | status (always 3 pills) */}
         <div className="absolute top-2 left-2 flex gap-1">
-          {/* Mode label */}
           <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/60">单个</span>
-          {/* Duration */}
-          <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80 font-mono">
-            {task.duration}s
-          </span>
-          {/* Status */}
-          {task.status === 'downloaded' && (
-            <span className="px-1.5 py-0.5 rounded-md bg-success/80 text-[10px] text-white">已下载</span>
-          )}
-          {isFailed && (
-            <span className="px-1.5 py-0.5 rounded-md bg-error/80 text-[10px] text-white">失败</span>
-          )}
+          <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">1 个</span>
+          {isFailed
+            ? <span className="px-1.5 py-0.5 rounded-md bg-error/80 text-[10px] text-white">失败</span>
+            : task.status === 'downloaded'
+              ? <span className="px-1.5 py-0.5 rounded-md bg-success/80 text-[10px] text-white">已下载</span>
+              : <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">已完成</span>
+          }
         </div>
 
         {/* Hover play overlay (success only) */}
@@ -833,6 +828,7 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
   const { removeBatchHistory } = useStore();
   const doneCount = record.tasks.filter(t => t.status !== 'failed').length;
   const failCount = record.tasks.filter(t => t.status === 'failed').length;
+  const allDownloaded = record.tasks.length > 0 && record.tasks.every(t => !!t.outputFile);
   const cover = record.tasks.find(t => t.outputFile)?.outputFile;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [folderClicked, setFolderClicked] = useState(false);
@@ -926,16 +922,16 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
             </div>
           )}
 
-          {/* Top-left badges: mode | info | status? */}
+          {/* Top-left badges: mode | quantity | status (always 3 pills) */}
           <div className="absolute top-2 left-2 flex gap-1">
-            {/* pill 1: mode */}
             <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/60">批量</span>
-            {/* pill 2: done count — neutral dark, same style as single's duration pill */}
-            <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">✓{doneCount}</span>
-            {/* pill 3: failure count — colored solid bg, only when failures exist */}
-            {failCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-error/80 text-[10px] text-white">{failCount} 失败</span>
-            )}
+            <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">{record.totalTasks} 个</span>
+            {failCount > 0
+              ? <span className="px-1.5 py-0.5 rounded-md bg-error/80 text-[10px] text-white">{failCount} 失败</span>
+              : allDownloaded
+                ? <span className="px-1.5 py-0.5 rounded-md bg-success/80 text-[10px] text-white">已下载</span>
+                : <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">已完成</span>
+            }
           </div>
 
           {/* Hover overlay */}

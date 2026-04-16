@@ -111,6 +111,7 @@ export interface TaskRecord {
   submitId?: string;
   model: string;
   duration: number;
+  aspectRatio?: string;
   materials: Array<{ path: string; type: string; storeUri?: string }>;
   resultUrl?: string;
   localPath?: string;
