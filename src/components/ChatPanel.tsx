@@ -1572,6 +1572,7 @@ export function ChatPanel() {
     sendMode, setSendMode,
     addTask, setBatchTasks,
   } = useStore();
+  const setBatchInfo = useStore(s => s.setBatchInfo);
   const addHistory = useStore(s => s.addHistory);
   const updateUsage = useStore(s => s.updateUsage);
   const { addSkill, updateSkill, activeSkill, setActiveSkill, credits, deductCredits, addCredits } = useStore();
@@ -2526,23 +2527,33 @@ export function ChatPanel() {
           return;
         }
         deductCredits(totalCost, `可灵 O1 · ${liveTasks.length} 个批量任务`);
-        liveTasks.forEach((t, i) => {
-          const submitId = 'kling_batch_' + Date.now() + '_' + i;
-          addTask({
-            id: 'task_' + Date.now() + '_' + i,
-            submitId,
-            prompt: t.prompt,
-            type: 'video',
-            status: 'generating',
-            progress: 0,
-            statusMessage: '准备中...',
-            model: 'kling-o1',
-            duration: t.duration,
-            materials: imagePaths.map(p => ({ path: p, type: 'image' as const })),
-            createdAt: Date.now() + i,
-            retryCount: 0,
-          });
-          void window.api.klingGenerate({ imagePaths, prompt: t.prompt, duration: t.duration, aspectRatio: t.aspectRatio, submitId });
+        const batchId = 'kling_batch_' + Date.now();
+        const klingBatchItems = liveTasks.map((t, i) => ({
+          id: 'task_' + Date.now() + '_' + i,
+          index: i,
+          prompt: t.prompt,
+          reason: t.reason ?? '',
+          materials: imagePaths.map(p => ({ path: p, type: 'image' as const })),
+          expectedEffect: t.expectedEffect ?? '',
+          duration: t.duration,
+          aspectRatio: t.aspectRatio,
+          model: 'kling-o1',
+          status: 'generating' as const,
+          submitId: batchId + '_' + i,
+        }));
+        setBatchTasks(klingBatchItems);
+        setBatchInfo({
+          id: batchId,
+          name: '可灵 O1 批量任务',
+          description: `共 ${liveTasks.length} 个任务`,
+          totalTasks: liveTasks.length,
+          completedTasks: 0,
+          status: 'running' as const,
+          createdAt: new Date().toISOString(),
+          downloadDir: '',
+        });
+        klingBatchItems.forEach((bt) => {
+          void window.api.klingGenerate({ imagePaths, prompt: bt.prompt, duration: bt.duration, aspectRatio: bt.aspectRatio, submitId: bt.submitId });
         });
         addMessage({
           id: Date.now().toString() + '_kling_batch_started',
@@ -2550,7 +2561,6 @@ export function ChatPanel() {
           content: `🚀 可灵批量任务已启动！共 ${liveTasks.length} 个任务，消耗 ${totalCost} 积分。可在作品页查看进度。`,
           timestamp: new Date(),
         });
-        setBatchTasks([]);  // 清空 batchTasks，防止 BatchQueueCard 显示"待提交"
         setSubmitting(false);
         setStatusText('');
         setGuidedStep('logged-in-ready');

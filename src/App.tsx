@@ -127,8 +127,19 @@ export default function App() {
       }
 
       if (data.event === 'kling-progress' && data.data?.submitId) {
-        const found = store.tasks.find((t: any) => t.submitId === data.data.submitId);
         const nextStatus = data.data.stage === 'queued' ? 'queued' : 'generating';
+        // Check batchTasks first (Kling O1 batch path)
+        const batchTasks = store.batchTasks;
+        const batchIdx = batchTasks.findIndex((bt: any) => bt.submitId === data.data.submitId);
+        if (batchIdx !== -1) {
+          store.setBatchTasks(batchTasks.map((bt: any, i: number) =>
+            i === batchIdx
+              ? { ...bt, status: nextStatus, queueStatus: data.data.stage === 'queued' ? 'Queuing' : 'Generating', queuePosition: data.data.queuePosition }
+              : bt
+          ));
+          return;
+        }
+        const found = store.tasks.find((t: any) => t.submitId === data.data.submitId);
         if (found && (found.status !== nextStatus || found.progress !== data.data.progress || found.statusMessage !== data.data.message)) {
           store.updateTask(found.id, { status: nextStatus, progress: data.data.progress, statusMessage: data.data.message, queuePosition: undefined, nextPollAt: undefined });
         }
@@ -142,6 +153,56 @@ export default function App() {
       }
 
       if (data.event === 'result') {
+        // Check batchTasks first (Kling O1 batch path)
+        const batchTasksOnResult = store.batchTasks;
+        const batchIdxOnResult = batchTasksOnResult.findIndex((bt: any) => bt.submitId === data.data?.submitId);
+        if (batchIdxOnResult !== -1) {
+          const isDownloaded = Boolean(data.data.filePath);
+          const updatedBatch = batchTasksOnResult.map((bt: any, i: number) =>
+            i === batchIdxOnResult
+              ? { ...bt, status: isDownloaded ? 'downloaded' as const : 'completed' as const, outputFile: data.data.filePath || data.data.resultUrl }
+              : bt
+          );
+          store.setBatchTasks(updatedBatch);
+          const batchInfoOnResult = store.batchInfo;
+          const succeededCount = updatedBatch.filter((bt: any) => bt.status === 'completed' || bt.status === 'downloaded').length;
+          if (batchInfoOnResult) store.setBatchInfo({ ...batchInfoOnResult, completedTasks: succeededCount });
+          const allDone = updatedBatch.every((bt: any) => ['completed', 'downloaded', 'failed'].includes(bt.status));
+          if (allDone) {
+            const failedCount = updatedBatch.filter((bt: any) => bt.status === 'failed').length;
+            const total = updatedBatch.length;
+            store.addMessage({ id: Date.now().toString() + '_kbc', role: 'assistant', content: `📦 可灵批量任务完成!\n✅ ${succeededCount} 成功 / ❌ ${failedCount} 失败 / 共 ${total} 个任务`, timestamp: new Date() });
+            if (batchInfoOnResult && updatedBatch.length > 0) {
+              const sharedMat = updatedBatch[0]?.materials ?? [];
+              store.addBatchHistory({
+                id: batchInfoOnResult.id || ('batch_hist_' + Date.now()),
+                name: batchInfoOnResult.name || '可灵 O1 批量任务',
+                description: batchInfoOnResult.description || '',
+                model: updatedBatch[0]?.model ?? 'kling-o1',
+                duration: updatedBatch[0]?.duration ?? 5,
+                aspectRatio: updatedBatch[0]?.aspectRatio ?? '9:16',
+                sharedMaterials: sharedMat.map((m: any) => ({ path: m.path, type: m.type as 'image' | 'video' | 'audio' })),
+                totalTasks: total,
+                completedTasks: succeededCount,
+                tasks: updatedBatch.map((bt: any) => ({
+                  index: bt.index + 1,
+                  prompt: bt.prompt,
+                  status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
+                  outputFile: bt.outputFile,
+                  error: bt.error,
+                })),
+                createdAt: new Date(batchInfoOnResult.createdAt).getTime(),
+                completedAt: Date.now(),
+              });
+            }
+            store.setBatchTasks([]);
+            store.setBatchInfo(null);
+          }
+          const u = store.usage;
+          store.updateUsage({ totalTasks: u.totalTasks + 1, completedTasks: u.completedTasks + 1, todayTasks: u.todayTasks + 1 });
+          return;
+        }
+
         const found = store.tasks.find((t: any) => t.submitId === data.data?.submitId);
         if (found) {
           const resolvedResultUrl = data.data.resultUrl || data.data.filePath || found.resultUrl || '';
@@ -180,6 +241,57 @@ export default function App() {
       }
 
       if (data.event === 'failed') {
+        // Check batchTasks first (Kling O1 batch path)
+        const batchTasksOnFailed = store.batchTasks;
+        const batchIdxOnFailed = batchTasksOnFailed.findIndex((bt: any) => bt.submitId === data.data?.submitId);
+        if (batchIdxOnFailed !== -1) {
+          const updatedBatch = batchTasksOnFailed.map((bt: any, i: number) =>
+            i === batchIdxOnFailed
+              ? { ...bt, status: 'failed' as const, error: data.data?.error || '生成失败' }
+              : bt
+          );
+          store.setBatchTasks(updatedBatch);
+          const failedTask = updatedBatch[batchIdxOnFailed];
+          const cost = (failedTask?.duration || 5) * 10;
+          store.addCredits(cost, '可灵 O1 批量任务失败退款');
+          const allDone = updatedBatch.every((bt: any) => ['completed', 'downloaded', 'failed'].includes(bt.status));
+          if (allDone) {
+            const succeededCount = updatedBatch.filter((bt: any) => bt.status === 'completed' || bt.status === 'downloaded').length;
+            const failedCount = updatedBatch.filter((bt: any) => bt.status === 'failed').length;
+            const total = updatedBatch.length;
+            const batchInfoOnFailed = store.batchInfo;
+            store.addMessage({ id: Date.now().toString() + '_kbc', role: 'assistant', content: `📦 可灵批量任务完成!\n✅ ${succeededCount} 成功 / ❌ ${failedCount} 失败 / 共 ${total} 个任务`, timestamp: new Date() });
+            if (batchInfoOnFailed && updatedBatch.length > 0) {
+              const sharedMat = updatedBatch[0]?.materials ?? [];
+              store.addBatchHistory({
+                id: batchInfoOnFailed.id || ('batch_hist_' + Date.now()),
+                name: batchInfoOnFailed.name || '可灵 O1 批量任务',
+                description: batchInfoOnFailed.description || '',
+                model: updatedBatch[0]?.model ?? 'kling-o1',
+                duration: updatedBatch[0]?.duration ?? 5,
+                aspectRatio: updatedBatch[0]?.aspectRatio ?? '9:16',
+                sharedMaterials: sharedMat.map((m: any) => ({ path: m.path, type: m.type as 'image' | 'video' | 'audio' })),
+                totalTasks: total,
+                completedTasks: succeededCount,
+                tasks: updatedBatch.map((bt: any) => ({
+                  index: bt.index + 1,
+                  prompt: bt.prompt,
+                  status: (bt.status === 'downloaded' ? 'downloaded' : bt.status === 'failed' ? 'failed' : 'completed') as 'completed' | 'downloaded' | 'failed',
+                  outputFile: bt.outputFile,
+                  error: bt.error,
+                })),
+                createdAt: new Date(batchInfoOnFailed.createdAt).getTime(),
+                completedAt: Date.now(),
+              });
+            }
+            store.setBatchTasks([]);
+            store.setBatchInfo(null);
+          }
+          const u = store.usage;
+          store.updateUsage({ totalTasks: u.totalTasks + 1, failedTasks: u.failedTasks + 1 });
+          return;
+        }
+
         const found = store.tasks.find((t: any) => t.submitId === data.data?.submitId);
         if (found) {
           store.updateTask(found.id, { status: 'failed', error: data.data?.error || '生成失败' });

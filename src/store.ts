@@ -46,6 +46,7 @@ export interface BatchTaskItem {
   queueLength?: number;
   outputFile?: string;
   error?: string;
+  submitId?: string;
 }
 
 // 批量任务元信息
