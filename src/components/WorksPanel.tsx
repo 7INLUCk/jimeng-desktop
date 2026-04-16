@@ -546,9 +546,13 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
 
         {/* Duration / status badges — top left */}
         <div className="absolute top-2 left-2 flex gap-1">
+          {/* Mode label */}
+          <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/60">单个</span>
+          {/* Duration */}
           <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80 font-mono">
             {task.duration}s
           </span>
+          {/* Status */}
           {task.status === 'downloaded' && (
             <span className="px-1.5 py-0.5 rounded-md bg-success/80 text-[10px] text-white">已下载</span>
           )}
@@ -922,14 +926,15 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
             </div>
           )}
 
-          {/* Status badge — ✓N (✗N only when failures exist) */}
-          <div className="absolute top-2 left-2 flex items-center gap-1">
-            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/90">
+          {/* Top-left badges — mode label + completion status */}
+          <div className="absolute top-2 left-2 flex gap-1">
+            {/* Mode label */}
+            <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/60">批量</span>
+            {/* Completion count */}
+            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-white/80">
               <span className="text-success">✓</span>{doneCount}
-              {failCount > 0 && (
-                <><span className="text-error ml-1">✗</span>{failCount}</>
-              )}
-            </div>
+              {failCount > 0 && <><span className="text-error ml-1">✗</span>{failCount}</>}
+            </span>
           </div>
 
           {/* Hover overlay */}
