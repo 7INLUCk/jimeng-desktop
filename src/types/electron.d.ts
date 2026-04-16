@@ -76,6 +76,9 @@ declare global {
       saveSettings: (settings: any) => Promise<{ success: boolean; settings?: any }>;
       getStatus: () => Promise<{ browserReady: boolean; isLoggedIn: boolean | null; version: string; resultsCount: number; queueStatus: any }>;
 
+      // 可灵 O1
+      klingGenerate: (params: { imagePaths: string[]; prompt: string; duration: number; aspectRatio: string; submitId?: string }) => void;
+
       // 事件
       onProgress: (callback: (data: any) => void) => () => void;
       onComplete: (callback: (data: any) => void) => () => void;

@@ -521,7 +521,28 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
     >
       {/* Thumbnail — overflow-hidden lives here, not on outer div */}
       <div className="aspect-square bg-surface-2 relative overflow-hidden rounded-t-2xl">
-        {task.thumbnailUrl ? (
+        {isFailed ? (
+          /* Failed state: dimmed thumbnail (if any) + error overlay */
+          <>
+            {task.thumbnailUrl && (
+              <img
+                src={toPlayable(task.thumbnailUrl)}
+                alt=""
+                className="w-full h-full object-cover opacity-20"
+                loading="lazy"
+              />
+            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center px-3 text-center gap-1.5">
+              <AlertTriangle size={18} className="text-error/70 flex-shrink-0" />
+              <p className="text-[11px] font-medium text-error/90 leading-tight">
+                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
+              </p>
+              <p className="text-[10px] text-error/60 leading-tight line-clamp-3">
+                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').message}
+              </p>
+            </div>
+          </>
+        ) : task.thumbnailUrl ? (
           <img
             src={toPlayable(task.thumbnailUrl)}
             alt=""
@@ -537,10 +558,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            {isFailed
-              ? <AlertTriangle size={24} className="text-error/50" />
-              : <Film size={24} className="text-text-disabled" />
-            }
+            <Film size={24} className="text-text-disabled" />
           </div>
         )}
 
@@ -608,27 +626,24 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
           </>
         ) : (
           <>
-            {/* Slot 1: copy (success) or invisible placeholder (failed) */}
-            <div className="relative group/copy">
-              <button
-                onClick={handleCopy}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isFailed
-                    ? 'invisible'
-                    : copied
+            {/* Slot 1: copy (success only — omitted entirely for failed so retry starts from left) */}
+            {!isFailed && (
+              <div className="relative group/copy">
+                <button
+                  onClick={handleCopy}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    copied
                       ? 'bg-success/20 text-success'
                       : 'bg-surface-3 hover:bg-surface-2 text-text-muted hover:text-text-primary'
-                }`}
-                tabIndex={isFailed ? -1 : undefined}
-              >
-                {copied ? <Check size={12} /> : <Copy size={12} />}
-              </button>
-              {!isFailed && (
+                  }`}
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                </button>
                 <div className="absolute bottom-full right-0 mb-1 px-1.5 py-0.5 bg-surface-0 border border-[rgba(255,255,255,0.1)] rounded text-[10px] text-text-secondary whitespace-nowrap opacity-0 group-hover/copy:opacity-100 transition-opacity pointer-events-none z-50">
                   {copied ? '已复制' : '复制提示词'}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             {/* Slot 2: download/folder (success+file) or retry (failed) or invisible (success+no file) */}
             {isFailed ? (
               <button
@@ -1268,6 +1283,7 @@ export function WorksPanel() {
     batchHistory,
     retryTask,
     deleteTask,
+    updateTask,
     setPreviewUrl,
     highlightedTaskId,
     setHighlightedTaskId,
@@ -1343,9 +1359,37 @@ export function WorksPanel() {
     return () => window.clearTimeout(timer);
   }, [highlightedTaskId, setHighlightedTaskId]);
 
-  const handleRetry = useCallback((id: string) => {
-    retryTask(id);
-  }, [retryTask]);
+  const handleRetry = useCallback(async (id: string) => {
+    const task = useStore.getState().tasks.find(t => t.id === id);
+    if (!task) return;
+
+    // Optimistically set to generating so the queue card appears
+    updateTask(id, { status: 'generating', error: undefined, retryCount: (task.retryCount || 0) + 1, progress: undefined });
+
+    try {
+      if (task.model === 'kling-o1') {
+        const imagePaths = task.materials.filter(m => m.type === 'image').map(m => m.path);
+        const submitId = 'kling_retry_' + Date.now();
+        void window.api.klingGenerate({ imagePaths, prompt: task.prompt, duration: task.duration, aspectRatio: task.aspectRatio || '9:16', submitId });
+        updateTask(id, { submitId });
+      } else {
+        const result = await window.api.runStructuredTask({
+          prompt: task.prompt,
+          materials: task.materials,
+          model: task.model,
+          duration: task.duration,
+          aspectRatio: task.aspectRatio || '9:16',
+        }) as any;
+        if (result.success && result.submitId) {
+          updateTask(id, { submitId: result.submitId });
+        } else {
+          updateTask(id, { status: 'failed', error: result.error || '重试提交失败' });
+        }
+      }
+    } catch (err) {
+      updateTask(id, { status: 'failed', error: String(err) });
+    }
+  }, [updateTask]);
 
   const handleDelete = useCallback((id: string) => {
     deleteTask(id);
