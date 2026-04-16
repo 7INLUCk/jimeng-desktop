@@ -24,11 +24,11 @@ function fmtDate(ts: number): string {
   });
 }
 
-function modelShort(m: string): string {
+function modelName(m: string): string {
   const map: Record<string, string> = {
-    'seedance2.0fast': 'S-Fast',
-    'seedance2.0': 'S-2.0',
-    'kling-o1': 'Kling',
+    'seedance2.0fast': 'Seedance 2.0 Fast',
+    'seedance2.0': 'Seedance 2.0',
+    'kling-o1': 'Kling O1',
   };
   return map[m] || m;
 }
@@ -212,7 +212,7 @@ function BatchQueueCard({ onOpenDrawer }: { onOpenDrawer: () => void }) {
         <div className="flex items-center gap-1 flex-shrink-0">
           {batchTasks[0]?.model && (
             <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
-              {batchTasks[0].model === 'kling-o1' ? 'Kling' : 'Seedance'}
+              {modelName(batchTasks[0].model)}
             </span>
           )}
           {batchTasks[0]?.duration && (
@@ -353,7 +353,7 @@ function QueueCard({ task, onOpenDrawer }: { task: TaskRecord; onOpenDrawer: (ta
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
-            {modelShort(task.model)}
+            {modelName(task.model)}
           </span>
           <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
             {task.duration}s
@@ -581,7 +581,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
 
           {/* Model badge + actions row */}
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] text-white/50">{modelShort(task.model)}</span>
+            <span className="text-[10px] text-white/50">{modelName(task.model)}</span>
 
             <div className="flex items-center gap-1">
               <button
@@ -650,7 +650,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
       {!isFailed && (
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-[11px] text-text-muted">
-            {modelShort(task.model)} · {task.duration}s
+            {modelName(task.model)} · {task.duration}s
           </span>
           <span className="text-[11px] text-text-disabled">
             {task.completedAt ? fmtDate(task.completedAt) : ''}
@@ -756,7 +756,7 @@ function SingleCardList({ task, onPreview, onDelete, onRetry, highlighted = fals
         <p className="text-xs text-text-primary line-clamp-1">{task.prompt || '无提示词'}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className={`text-[11px] ${STATUS_COLOR[task.status]}`}>{STATUS_LABEL[task.status]}</span>
-          <span className="text-[11px] text-text-disabled">{modelShort(task.model)} · {task.duration}s · {fmtDate(task.createdAt)}</span>
+          <span className="text-[11px] text-text-disabled">{modelName(task.model)} · {task.duration}s · {fmtDate(task.createdAt)}</span>
         </div>
         {isFailed && (
           <p className={`text-[10px] mt-0.5 ${CATEGORY_COLORS[parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').category].text}`}>
@@ -867,7 +867,7 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
         <div className="px-3 py-2.5">
           <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
           <div className="flex items-center gap-1 mt-1">
-            <span className="text-[11px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
+            <span className="text-[11px] text-text-disabled">{modelName(record.model)} · {record.duration}s · {record.aspectRatio}</span>
           </div>
           <div className="flex items-center gap-1 mt-1.5">
             <CheckCircle size={11} className="text-success" />
@@ -904,7 +904,7 @@ function BatchCardList({ record, onClick }: { record: BatchHistoryRecord; onClic
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
         <p className="text-[10px] text-text-disabled mt-0.5">
-          {modelShort(record.model)} · {record.duration}s · {record.aspectRatio}
+          {modelName(record.model)} · {record.duration}s · {record.aspectRatio}
           <span className="ml-2 text-success">✓{doneCount}</span>
           {failCount > 0 && <span className="ml-1 text-error">✗{failCount}</span>}
           <span className="ml-2">{fmtDate(record.completedAt)}</span>
@@ -956,7 +956,7 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
         {/* Shared params bar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-1 flex-shrink-0">
           <span className="text-[10px] text-text-muted uppercase tracking-wider mr-1">共享参数</span>
-          {[modelShort(record.model), `${record.duration}s`, record.aspectRatio].map((tag, i) => (
+          {[modelName(record.model), `${record.duration}s`, record.aspectRatio].map((tag, i) => (
             <span key={i} className="text-[10px] bg-surface-3 text-text-secondary px-2 py-0.5 rounded">{tag}</span>
           ))}
           {record.sharedMaterials.slice(0, 3).map((m, i) => (
