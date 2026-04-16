@@ -8,6 +8,7 @@ import { useStore, type TaskRecord, type BatchHistoryRecord, type BatchHistoryTa
 import { localFileUrlSync } from '../utils/localFile';
 import { parseTaskError, CATEGORY_COLORS, type ParsedError } from '../utils/errorMessages';
 import { getOpenableLocalPath, isRemoteHttpUrl } from '../utils/filePath';
+import { QueueDetailDrawer } from './QueueDetailDrawer';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,13 @@ const STATUS_LABEL: Record<string, string> = {
   pending: '等待中', queued: '排队中', generating: '生成中',
   uploading: '上传中', completed: '已完成', downloaded: '已下载', failed: '失败',
 };
+
+function getQueueStep(task: TaskRecord): 1 | 2 | 3 | 4 {
+  if (task.status === 'completed' || task.status === 'downloaded') return 4;
+  if (task.status === 'generating' && (task.progress ?? 0) > 0) return 3;
+  if (task.status === 'queued') return 2;
+  return 1; // pending / uploading / kling initial generating (progress=0)
+}
 
 // ── TaskErrorDisplay ─────────────────────────────────────────────────────────
 // Compact error block used inside failed task cards.
@@ -110,10 +118,51 @@ function TaskErrorDisplay({ rawError, source, onRetry, onFix }: {
   );
 }
 
+// ── FailedFooter — compact expandable error strip ────────────────────────────
+
+function FailedFooter({ error, model, onRetry }: {
+  error?: string;
+  model: string;
+  onRetry: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const parsed = parseTaskError(error, model === 'kling-o1' ? 'kling' : 'seedance');
+
+  return (
+    <div className="border-t border-[rgba(255,255,255,0.06)]">
+      {/* Summary row — always visible */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <AlertTriangle size={11} className="text-error flex-shrink-0" />
+        <span className="text-[11px] text-error truncate flex-1">{parsed.title}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onRetry(); }}
+          className="text-[10px] text-text-muted hover:text-brand transition-colors flex-shrink-0"
+        >
+          重试
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+          className="text-[10px] text-text-disabled hover:text-text-muted transition-colors flex-shrink-0"
+        >
+          {expanded ? '收起' : '详情'}
+        </button>
+      </div>
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="px-3 pb-2.5">
+          <p className="text-[11px] text-text-secondary leading-snug">{parsed.message}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Batch queue card — same size/style as QueueCard ──────────────────────────
 
-function BatchQueueCard() {
+function BatchQueueCard({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { batchTasks, batchInfo } = useStore();
+  const settings = useStore(s => s.settings);
+
   const hasActiveTasks = batchTasks.some((t: BatchTaskItem) =>
     ['pending', 'submitted', 'generating'].includes(t.status)
   );
@@ -121,122 +170,150 @@ function BatchQueueCard() {
   const total = batchTasks.length;
   if (total === 0 || !hasActiveTasks) return null;
 
-  const doneBatch = batchTasks.filter((t: BatchTaskItem) =>
-    ['completed', 'downloaded', 'failed'].includes(t.status)
+  const running = batchTasks.filter((t: BatchTaskItem) =>
+    t.status === 'generating' || t.status === 'submitted'
+  ).length;
+  const waiting = batchTasks.filter((t: BatchTaskItem) => t.status === 'pending').length;
+  const done = batchTasks.filter((t: BatchTaskItem) =>
+    t.status === 'completed' || t.status === 'downloaded'
+  ).length;
+  const failed = batchTasks.filter((t: BatchTaskItem) => t.status === 'failed').length;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const lastStepLabel = settings.autoDownload ? '下载中' : '已完成';
+
+  // Sub-task list: running first then waiting, max 3
+  const runningTasks = batchTasks.filter((t: BatchTaskItem) =>
+    t.status === 'generating' || t.status === 'submitted'
   );
-  const progressPct = Math.round((doneBatch.length / total) * 100);
-  const isRunning = doneBatch.length < total;
+  const waitingTasks = batchTasks.filter((t: BatchTaskItem) => t.status === 'pending');
+  const visibleTasks = [...runningTasks, ...waitingTasks].slice(0, 3);
+  const hiddenCount = Math.max(0, total - visibleTasks.length - done - failed);
 
-  const activeTask = batchTasks.find((t: BatchTaskItem) =>
-    ['submitted', 'generating'].includes(t.status)
-  );
-  const isQueuing    = activeTask && activeTask.queueStatus === 'Queuing';
-  const isGenerating = activeTask && activeTask.queueStatus === 'Generating';
-
-  let statusLabel: string;
-  let statusColor: string;
-  let dotColor: string;
-  if (!isRunning)        { statusLabel = '已完成';  statusColor = 'text-success'; dotColor = 'bg-success'; }
-  else if (isQueuing)    { statusLabel = `排队第${activeTask!.queuePosition! + 1}位`; statusColor = 'text-warning'; dotColor = 'bg-warning'; }
-  else if (isGenerating) { statusLabel = '生成中';  statusColor = 'text-brand';   dotColor = 'bg-brand animate-pulse'; }
-  else                   { statusLabel = '提交中';  statusColor = 'text-brand';   dotColor = 'bg-brand animate-pulse'; }
-
-  // Task dot color per status
-  const taskDotColor = (t: BatchTaskItem): string => {
-    if (['completed', 'downloaded'].includes(t.status)) return 'bg-success';
+  const subDotColor = (t: BatchTaskItem): string => {
+    if (t.status === 'completed' || t.status === 'downloaded') return 'bg-success';
     if (t.status === 'failed') return 'bg-error';
-    if (['submitted', 'generating'].includes(t.status)) return 'bg-brand';
+    if (t.status === 'generating' || t.status === 'submitted') return 'bg-brand animate-pulse';
     return 'bg-surface-3';
   };
 
-  const showScrollRail = total > 3;
+  const subStatusLabel = (t: BatchTaskItem): string => {
+    if (t.status === 'generating' || t.status === 'submitted') return '生成中';
+    return '等待中';
+  };
 
   return (
-    <div className="bg-surface-2 border border-[rgba(255,255,255,0.08)] rounded-xl p-3 flex flex-col gap-2 min-w-0 max-w-[320px] active:scale-[0.97] transition-transform duration-150">
-      {/* Top row: status dot + label + badges */}
+    <div className="bg-surface-2 border border-[rgba(255,255,255,0.08)] rounded-xl p-3 flex flex-col gap-2.5 min-w-0 max-w-[400px] active:scale-[0.97] transition-transform duration-150">
+      {/* Row 1: batch name + model + duration + ratio */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
-          <span className={`text-[11px] font-medium ${statusColor}`}>{statusLabel}</span>
-        </div>
+        <p className="text-[11px] font-medium text-text-primary truncate flex-1 min-w-0">
+          {batchInfo?.name || batchInfo?.description || '批量生成任务'}
+        </p>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">批量</span>
-          <span className="text-[10px] text-brand bg-brand/10 px-1.5 py-0.5 rounded">
-            {doneBatch.length}/{total}
-          </span>
+          {batchTasks[0]?.model && (
+            <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
+              {batchTasks[0].model === 'kling-o1' ? 'Kling' : 'Seedance'}
+            </span>
+          )}
+          {batchTasks[0]?.duration && (
+            <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
+              {batchTasks[0].duration}s
+            </span>
+          )}
+          {batchTasks[0]?.aspectRatio && (
+            <span className="text-[10px] text-text-disabled bg-surface-3 px-1.5 py-0.5 rounded">
+              {batchTasks[0].aspectRatio}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Batch name */}
-      <p className="text-xs text-text-secondary line-clamp-2 leading-snug">
-        {batchInfo?.name || batchInfo?.description || batchTasks[0]?.prompt || '批量生成任务'}
-      </p>
+      {/* Row 2: concurrency status row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {running > 0 && (
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse flex-shrink-0" />
+            <span className="text-[10px] text-brand">运行中 {running}</span>
+          </div>
+        )}
+        {waiting > 0 && (
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-surface-3 flex-shrink-0" />
+            <span className="text-[10px] text-text-muted">等待中 {waiting}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" />
+          <span className="text-[10px] text-success">{lastStepLabel} {done}</span>
+        </div>
+        {failed > 0 && (
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0" />
+            <span className="text-[10px] text-error">失败 {failed}</span>
+          </div>
+        )}
+      </div>
 
-      {/* Progress bar + percentage */}
+      {/* Row 3: sub-task list (running/waiting, max 3) */}
+      {visibleTasks.length > 0 && (
+        <div className="space-y-1">
+          {visibleTasks.map((t: BatchTaskItem) => (
+            <div key={t.id} className="flex items-center gap-2 min-w-0">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${subDotColor(t)}`} />
+              <span className={`text-[10px] flex-shrink-0 ${
+                t.status === 'generating' || t.status === 'submitted' ? 'text-brand' : 'text-text-muted'
+              }`}>
+                {subStatusLabel(t)}
+              </span>
+              <span className="text-[10px] text-text-disabled truncate flex-1">{t.prompt}</span>
+            </div>
+          ))}
+          {hiddenCount > 0 && (
+            <p className="text-[10px] text-text-disabled text-right">+ {hiddenCount} 条</p>
+          )}
+        </div>
+      )}
+
+      {/* Row 4: overall progress bar */}
       <div className="flex items-center gap-2">
         <div className="flex-1 h-0.5 bg-surface-3 rounded-full overflow-hidden">
           <div
             className="h-full bg-brand rounded-full transition-[width] duration-500"
-            style={{ width: `${progressPct}%` }}
+            style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-[10px] text-text-disabled flex-shrink-0 w-7 text-right">
-          {progressPct}%
+        <span className="text-[10px] text-text-disabled flex-shrink-0">
+          {done} / {total}
         </span>
       </div>
 
-      {/* Activity Rail */}
-      {showScrollRail ? (
-        // >3 tasks: horizontal scroll with right fade mask
-        <div
-          className="relative overflow-hidden"
-          style={{ maskImage: 'linear-gradient(to right, black 80%, transparent 100%)' }}
+      {/* Row 5: 详情 button */}
+      <div className="flex justify-end">
+        <button
+          onClick={onOpenDrawer}
+          className="text-[11px] text-text-muted hover:text-brand transition-colors"
         >
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
-            {batchTasks.map((t: BatchTaskItem, i: number) => (
-              <div
-                key={t.id}
-                className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[9px] font-mono
-                  ${['completed','downloaded'].includes(t.status) ? 'bg-success/15 text-success'
-                  : t.status === 'failed' ? 'bg-error/15 text-error'
-                  : ['submitted','generating'].includes(t.status) ? 'bg-brand/15 text-brand'
-                  : 'bg-surface-3 text-text-disabled'}`}
-                title={t.prompt}
-              >
-                {String(i + 1).padStart(2, '0')}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        // ≤3 tasks: inline dots with prompt truncated
-        <div className="flex items-center gap-2">
-          {batchTasks.map((t: BatchTaskItem, i: number) => (
-            <div key={t.id} className="flex items-center gap-1 min-w-0">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${taskDotColor(t)}`} />
-              <span className="text-[10px] text-text-disabled truncate max-w-[72px]">
-                {t.prompt.slice(0, 14)}{t.prompt.length > 14 ? '…' : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+          详情 ›
+        </button>
+      </div>
     </div>
   );
 }
 
-function QueueCard({ task }: { task: TaskRecord }) {
+function QueueCard({ task, onOpenDrawer }: { task: TaskRecord; onOpenDrawer: (task: TaskRecord) => void }) {
+  const settings = useStore(s => s.settings);
   const isActive = ['generating', 'uploading'].includes(task.status);
   const isQueued = task.status === 'queued';
   const isKling = task.model === 'kling-o1';
   const progress = task.progress ?? 0;
+  const step = getQueueStep(task);
+
   const statusText = isQueued && isKling && task.statusMessage
     ? task.statusMessage
     : isQueued && task.queuePosition != null
       ? `第 ${task.queuePosition + 1} 位`
       : STATUS_LABEL[task.status];
 
-  // Dot color
   const dotColor = isActive
     ? 'bg-brand animate-pulse'
     : isQueued
@@ -245,9 +322,28 @@ function QueueCard({ task }: { task: TaskRecord }) {
         ? 'bg-error'
         : 'bg-success';
 
+  // Supplement status text below progress bar
+  let supplementText: string | null = null;
+  if (task.status === 'queued' && !isKling && task.queuePosition != null) {
+    supplementText = `队列第 ${task.queuePosition + 1} 位 / 共 ${task.queueLength ?? '?'} 位`;
+  } else if (task.status === 'queued' && isKling) {
+    supplementText = task.queuePosition != null ? `内部队列第 ${task.queuePosition} 位` : null;
+  } else if (task.status === 'generating') {
+    supplementText = task.statusMessage || '正在生成中…';
+  }
+
+  const lastStepLabel = settings.autoDownload ? '下载中' : '已完成';
+
+  const STEPS = [
+    { label: '提交中' },
+    { label: '平台排队' },
+    { label: '生成中' },
+    { label: lastStepLabel },
+  ];
+
   return (
-    <div className="bg-surface-2 border border-[rgba(255,255,255,0.08)] rounded-xl p-3 flex flex-col gap-2 min-w-0 max-w-[320px] active:scale-[0.97] transition-transform duration-150">
-      {/* Top row: status dot + label + params */}
+    <div className="bg-surface-2 border border-[rgba(255,255,255,0.08)] rounded-xl p-3 flex flex-col gap-2.5 min-w-0 max-w-[400px] active:scale-[0.97] transition-transform duration-150">
+      {/* Row 1: status dot + label + model + duration */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
@@ -265,14 +361,14 @@ function QueueCard({ task }: { task: TaskRecord }) {
         </div>
       </div>
 
-      {/* Prompt */}
-      <p className="text-xs text-text-secondary line-clamp-2 leading-snug">{task.prompt}</p>
+      {/* Row 2: prompt (3-line clamp) */}
+      <p className="text-xs text-text-secondary line-clamp-3 leading-snug">{task.prompt}</p>
 
-      {/* Material thumbnails */}
+      {/* Row 2b: materials thumbnails */}
       {task.materials?.length > 0 && (
         <div className="flex gap-1.5">
           {task.materials.slice(0, 4).map((m, i) => (
-            <div key={i} className="w-10 h-10 rounded-lg overflow-hidden border border-[rgba(255,255,255,0.08)] flex-shrink-0 bg-surface-3">
+            <div key={i} className="w-10 h-10 rounded-md overflow-hidden border border-[rgba(255,255,255,0.08)] flex-shrink-0 bg-surface-3">
               {m.type === 'image'
                 ? <img src={localFileUrlSync(m.path)} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center"><Film size={12} className="text-text-disabled" /></div>
@@ -280,15 +376,49 @@ function QueueCard({ task }: { task: TaskRecord }) {
             </div>
           ))}
           {task.materials.length > 4 && (
-            <div className="w-10 h-10 rounded-lg border border-[rgba(255,255,255,0.08)] flex items-center justify-center flex-shrink-0 bg-surface-3">
+            <div className="w-10 h-10 rounded-md border border-[rgba(255,255,255,0.08)] flex items-center justify-center flex-shrink-0 bg-surface-3">
               <span className="text-[10px] text-text-disabled">+{task.materials.length - 4}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Progress bar + percentage */}
-      {(isActive || isKling) && (
+      {/* Row 3: 4-step status pipeline */}
+      <div className="flex items-start">
+        {STEPS.map((s, i) => {
+          const stepNum = (i + 1) as 1 | 2 | 3 | 4;
+          const isPast = step > stepNum;
+          const isCurrent = step === stepNum;
+          return (
+            <div key={i} className="flex items-start flex-1 min-w-0">
+              {/* Connector line before (not for first) */}
+              {i > 0 && (
+                <div className={`flex-1 h-px mt-1 ${isPast || isCurrent ? 'bg-success' : 'border-t border-dashed border-surface-3'}`} />
+              )}
+              {/* Step dot + label */}
+              <div className="flex flex-col items-center gap-0.5 px-0.5">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  isCurrent ? 'bg-brand ring-2 ring-brand/30' :
+                  isPast ? 'bg-success' :
+                  'bg-surface-3'
+                }`} />
+                <span className={`text-[9px] whitespace-nowrap leading-tight text-center ${
+                  isCurrent ? 'text-brand font-medium' :
+                  isPast ? 'text-success' :
+                  'text-text-disabled'
+                }`}>{s.label}</span>
+              </div>
+              {/* Connector line after (not for last) */}
+              {i < STEPS.length - 1 && (
+                <div className={`flex-1 h-px mt-1 ${isPast ? 'bg-success' : 'border-t border-dashed border-surface-3'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Row 4: progress bar + supplement text */}
+      {(isActive || isQueued || isKling) && (
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="flex-1 h-0.5 bg-surface-3 rounded-full overflow-hidden">
@@ -301,18 +431,21 @@ function QueueCard({ task }: { task: TaskRecord }) {
               {progress}%
             </span>
           </div>
-          {task.statusMessage && (
-            <p className="text-[10px] text-text-disabled">{task.statusMessage}</p>
+          {supplementText && (
+            <p className="text-[10px] text-text-disabled">{supplementText}</p>
           )}
         </div>
       )}
 
-      {/* Queue countdown */}
-      {isQueued && task.nextPollAt && (
-        <p className="text-[10px] text-text-disabled">
-          {Math.max(0, Math.ceil((task.nextPollAt - Date.now()) / 60_000))} 分钟后刷新进度
-        </p>
-      )}
+      {/* Row 5: 详情 button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => onOpenDrawer(task)}
+          className="text-[11px] text-text-muted hover:text-brand transition-colors"
+        >
+          详情 ›
+        </button>
+      </div>
     </div>
   );
 }
@@ -399,7 +532,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
       }`}
     >
       {/* Thumbnail */}
-      <div className="aspect-video bg-surface-2 relative overflow-hidden">
+      <div className="aspect-square bg-surface-2 relative overflow-hidden">
         {task.thumbnailUrl ? (
           <img
             src={toPlayable(task.thumbnailUrl)}
@@ -437,9 +570,12 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
         </div>
 
         {/* Bottom overlay gradient + info + actions */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pt-8 pb-2.5 px-2.5">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-8 pb-2.5 px-2.5">
           {/* Prompt text */}
-          <p className="text-[11px] text-white/90 line-clamp-2 leading-snug mb-2">
+          <p
+            className="text-[11px] text-white line-clamp-2 leading-snug mb-2"
+            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
+          >
             {task.prompt || '无提示词'}
           </p>
 
@@ -502,15 +638,23 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
         </div>
       </div>
 
-      {/* Failed error block below thumbnail */}
+      {/* Footer — failed */}
       {isFailed && (
-        <div className="p-3">
-          <TaskErrorDisplay
-            rawError={task.error}
-            source={task.model === 'kling-o1' ? 'kling' : 'seedance'}
-            onRetry={onRetry ? () => onRetry(task.id) : undefined}
-            onFix={onRetry ? () => onRetry(task.id) : undefined}
-          />
+        <FailedFooter
+          error={task.error}
+          model={task.model}
+          onRetry={() => onRetry(task.id)}
+        />
+      )}
+      {/* Footer — success */}
+      {!isFailed && (
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-[11px] text-text-muted">
+            {modelShort(task.model)} · {task.duration}s
+          </span>
+          <span className="text-[11px] text-text-disabled">
+            {task.completedAt ? fmtDate(task.completedAt) : ''}
+          </span>
         </div>
       )}
     </div>
@@ -690,7 +834,7 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
         style={{ zIndex: 2 }}
       >
         {/* Cover thumbnail */}
-        <div className="aspect-video bg-surface-2 relative overflow-hidden">
+        <div className="aspect-square bg-surface-2 relative overflow-hidden">
           {cover ? (
             <video
               src={toPlayable(cover)}
@@ -720,7 +864,7 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
         </div>
 
         {/* Info */}
-        <div className="p-3">
+        <div className="px-3 py-2.5">
           <p className="text-xs font-medium text-text-primary truncate">{record.name}</p>
           <div className="flex items-center gap-1 mt-1">
             <span className="text-[11px] text-text-disabled">{modelShort(record.model)} · {record.duration}s · {record.aspectRatio}</span>
@@ -961,10 +1105,25 @@ export function WorksPanel() {
   } = useStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedBatch, setSelectedBatch] = useState<BatchHistoryRecord | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTask, setDrawerTask] = useState<TaskRecord | null>(null);
+  const [drawerIsBatch, setDrawerIsBatch] = useState(false);
   const hasActiveBatchTasks = useMemo(
     () => batchTasks.some(t => ['pending', 'submitted', 'generating'].includes(t.status)),
     [batchTasks]
   );
+
+  const handleOpenSingleDrawer = useCallback((task: TaskRecord) => {
+    setDrawerTask(task);
+    setDrawerIsBatch(false);
+    setDrawerOpen(true);
+  }, []);
+
+  const handleOpenBatchDrawer = useCallback(() => {
+    setDrawerTask(null);
+    setDrawerIsBatch(true);
+    setDrawerOpen(true);
+  }, []);
 
   // ── Partition tasks ──────────────────────────────────────────────────────
   const activeTasks = useMemo(
@@ -1074,8 +1233,8 @@ export function WorksPanel() {
             </div>
 
             <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : 'grid-cols-1'}`}>
-              <BatchQueueCard />
-              {activeTasks.map(t => <QueueCard key={t.id} task={t} />)}
+              <BatchQueueCard onOpenDrawer={handleOpenBatchDrawer} />
+              {activeTasks.map(t => <QueueCard key={t.id} task={t} onOpenDrawer={handleOpenSingleDrawer} />)}
             </div>
           </section>
         )}
@@ -1111,7 +1270,7 @@ export function WorksPanel() {
                 </div>
 
                 {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 items-start">
                     {group.items.map((item, i) =>
                       item.kind === 'single' ? (
                         <SingleCardGrid
@@ -1166,6 +1325,15 @@ export function WorksPanel() {
           onClose={() => setSelectedBatch(null)}
         />
       )}
+
+      {/* ── Queue detail drawer ─────────────────────────────────────────── */}
+      <QueueDetailDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        task={drawerIsBatch ? undefined : drawerTask ?? undefined}
+        batchTasks={drawerIsBatch ? batchTasks : undefined}
+        batchInfo={drawerIsBatch ? useStore.getState().batchInfo : undefined}
+      />
     </div>
   );
 }
