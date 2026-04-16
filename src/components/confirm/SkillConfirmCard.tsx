@@ -119,9 +119,9 @@ export function SkillConfirmCard({
 
   return (
     <>
-      <div className="bg-surface-2 border border-border rounded-md overflow-hidden max-w-[85%] animate-fade-in-up">
+      <div className="bg-surface-2 border border-border rounded-md overflow-hidden w-full max-w-[560px] animate-fade-in-up">
         <div className="h-px bg-brand" />
-        <div className="p-4 space-y-3.5">
+        <div className="p-5 space-y-4">
 
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -240,14 +240,19 @@ export function SkillConfirmCard({
               <textarea
                 value={taskPrompts[0] || ''}
                 onChange={e => setTaskPrompts([e.target.value])}
+                onInput={e => {
+                  const el = e.currentTarget;
+                  el.style.height = 'auto';
+                  el.style.height = Math.min(300, Math.max(100, el.scrollHeight)) + 'px';
+                }}
                 className="w-full bg-surface-3 border border-border-subtle rounded-lg px-3 py-2.5 text-sm text-text-primary leading-relaxed resize-none outline-none focus:border-brand transition-colors"
-                rows={3}
+                style={{ minHeight: '6rem', maxHeight: '18.75rem' }}
               />
             </div>
           ) : (
             <div>
               <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">批量任务 ({skill.tasks.length} 条)</p>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
                 {taskPrompts.map((prompt, i) => (
                   <div key={i} className="flex items-start gap-2">
                     <span className="text-[10px] font-mono text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0 mt-1.5">#{i + 1}</span>
@@ -258,8 +263,13 @@ export function SkillConfirmCard({
                         next[i] = e.target.value;
                         setTaskPrompts(next);
                       }}
+                      onInput={e => {
+                        const el = e.currentTarget;
+                        el.style.height = 'auto';
+                        el.style.height = Math.min(200, Math.max(56, el.scrollHeight)) + 'px';
+                      }}
                       className="flex-1 bg-surface-3 border border-border-subtle rounded-md px-2.5 py-2 text-xs text-text-primary resize-none outline-none focus:border-brand transition-colors"
-                      rows={2}
+                      style={{ minHeight: '3.5rem' }}
                     />
                   </div>
                 ))}
