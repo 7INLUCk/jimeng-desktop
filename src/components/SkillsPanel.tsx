@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Zap, Plus, Trash2, Copy, Edit3, ChevronDown, ChevronUp, Clock, RotateCcw, MessageSquare, Layers } from 'lucide-react';
 import { useStore, type Skill, type SkillTask } from '../store';
+import { localFileUrlSync } from '../utils/localFile';
+import { VideoThumb } from './confirm/VideoThumb';
 
 // ── Format helpers ──
 function timeAgo(ts: number): string {
@@ -34,6 +36,7 @@ function SkillEditor({
   const [tasks, setTasks] = useState<SkillTask[]>(skill.tasks || [{ prompt: '' }]);
   const [expandedTasks, setExpandedTasks] = useState(false);
   const [slots, setSlots] = useState<MaterialSlot[]>(skill.materialSlots || []);
+  const setPreviewUrl = useStore(s => s.setPreviewUrl);
 
   const MODEL_OPTIONS = [
     { value: 'seedance2.0fast', label: 'Seedance Fast' },
@@ -167,7 +170,26 @@ function SkillEditor({
               <div className="space-y-1.5">
                 {slots.map((slot, i) => (
                   <div key={i} className="flex items-center gap-2 bg-surface-2 rounded-md px-2.5 py-1.5">
-                    <span className="text-sm">{slotTypeIcon(slot.type)}</span>
+                    {/* Thumbnail preview when file is set */}
+                    {slot.path ? (
+                      <button
+                        onClick={() => setPreviewUrl(localFileUrlSync(slot.path!))}
+                        className="w-12 h-12 rounded-md overflow-hidden border border-border hover:border-brand flex-shrink-0 transition-all"
+                        title="点击预览"
+                      >
+                        {slot.type === 'image' ? (
+                          <img src={localFileUrlSync(slot.path)} alt="" className="w-full h-full object-cover" />
+                        ) : slot.type === 'video' ? (
+                          <VideoThumb path={slot.path} size={24} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-purple-500/20">
+                            <span className="text-purple-400">♪</span>
+                          </div>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-sm flex-shrink-0">{slotTypeIcon(slot.type)}</span>
+                    )}
                     <span className="text-[11px] text-text-secondary w-8 shrink-0">{slotTypeLabel(slot.type)}</span>
                     <button onClick={() => pickSlotFile(i)}
                       className="flex-1 text-left text-[11px] text-text-muted hover:text-brand transition-colors truncate">
@@ -210,9 +232,14 @@ function SkillEditor({
                   <textarea
                     value={task.prompt}
                     onChange={e => updateTaskPrompt(i, e.target.value)}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      el.style.height = Math.min(200, Math.max(60, el.scrollHeight)) + 'px';
+                    }}
                     placeholder={`提示词 #${i + 1}...`}
-                    rows={2}
                     className="flex-1 bg-surface-2 border border-border rounded-md px-2.5 py-2 text-xs text-text-primary resize-none outline-none focus:border-brand transition-colors"
+                    style={{ minHeight: '3.75rem', maxHeight: '12.5rem' }}
                   />
                   {tasks.length > 1 && (
                     <button onClick={() => removeTask(i)}
