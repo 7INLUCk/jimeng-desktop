@@ -119,7 +119,7 @@ export function SkillConfirmCard({
 
   return (
     <>
-      <div className="bg-surface-2 border border-border rounded-md overflow-hidden w-full max-w-[560px] animate-fade-in-up">
+      <div className="bg-surface-2 border border-border rounded-md overflow-hidden w-full max-w-[680px] animate-fade-in-up">
         <div className="h-px bg-brand" />
         <div className="p-5 space-y-4">
 
@@ -246,7 +246,7 @@ export function SkillConfirmCard({
                   el.style.height = Math.min(300, Math.max(100, el.scrollHeight)) + 'px';
                 }}
                 className="w-full bg-surface-3 border border-border-subtle rounded-lg px-3 py-2.5 text-sm text-text-primary leading-relaxed resize-none outline-none focus:border-brand transition-colors"
-                style={{ minHeight: '6rem', maxHeight: '18.75rem' }}
+                style={{ minHeight: '8rem', maxHeight: '18.75rem' }}
               />
             </div>
           ) : (
