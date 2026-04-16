@@ -849,38 +849,61 @@ function BatchCardGrid({ record, onClick }: { record: BatchHistoryRecord; onClic
     removeBatchHistory(record.id);
   }, [record.tasks, record.id, removeBatchHistory]);
 
+  // A: collect first 4 output files for 2×2 grid
+  const coverTasks = record.tasks.filter(t => t.outputFile).slice(0, 4);
+
   return (
     // Outer wrapper — no padding needed; layers overflow into gap naturally
     <div
       className="relative cursor-pointer group"
       onClick={onClick}
     >
-      {/* Layer 3 — back */}
+      {/* Layer 3 — back (C: stronger: opacity 0.55, offset 8px, brand-tinted border) */}
       <div
-        className="absolute inset-0 bg-surface-1 border border-[rgba(255,255,255,0.05)] rounded-2xl opacity-30"
-        style={{ transform: 'translate(6px, 6px) scale(0.93)', zIndex: 0 }}
+        className="absolute inset-0 bg-surface-1 border border-brand/10 rounded-2xl opacity-[0.55]"
+        style={{ transform: 'translate(8px, 8px) scale(0.93)', zIndex: 0 }}
       />
-      {/* Layer 2 — mid */}
+      {/* Layer 2 — mid (C: stronger: opacity 0.88, offset 4px, brand-tinted border) */}
       <div
-        className="absolute inset-0 bg-surface-1 border border-[rgba(255,255,255,0.07)] rounded-2xl opacity-60"
-        style={{ transform: 'translate(3px, 3px) scale(0.96)', zIndex: 1 }}
+        className="absolute inset-0 bg-surface-1 border border-brand/[0.14] rounded-2xl opacity-[0.88]"
+        style={{ transform: 'translate(4px, 4px) scale(0.96)', zIndex: 1 }}
       />
 
-      {/* Layer 1 — front (actual card) */}
+      {/* Layer 1 — front (actual card) — C: stronger border rgba(0.18) */}
       <div
-        className="relative bg-surface-1 border border-[rgba(255,255,255,0.10)] rounded-2xl overflow-hidden
+        className="relative bg-surface-1 border border-[rgba(255,255,255,0.18)] rounded-2xl overflow-hidden
           transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
         style={{ zIndex: 2 }}
       >
-        {/* Cover thumbnail */}
+        {/* A: 2×2 thumbnail grid (or single / empty fallback) */}
         <div className="aspect-square bg-surface-2 relative overflow-hidden">
-          {cover ? (
+          {coverTasks.length >= 2 ? (
+            // 2×2 grid — show up to 4 clips
+            <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px]">
+              {Array.from({ length: 4 }).map((_, i) => {
+                const t = coverTasks[i];
+                return t ? (
+                  <div key={i} className="relative overflow-hidden bg-surface-3">
+                    <video
+                      src={toPlayable(t.outputFile!)}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      muted
+                    />
+                  </div>
+                ) : (
+                  <div key={i} className="bg-surface-3/50" />
+                );
+              })}
+            </div>
+          ) : coverTasks.length === 1 ? (
+            // Single output: full-size video
             <video
-              src={toPlayable(cover)}
+              src={toPlayable(coverTasks[0].outputFile!)}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               muted
             />
           ) : (
+            // No output yet: placeholder icon
             <div className="w-full h-full flex flex-col items-center justify-center gap-1">
               <Layers size={28} className="text-text-disabled" />
             </div>
