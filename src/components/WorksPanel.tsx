@@ -1267,7 +1267,7 @@ export function WorksPanel() {
               )}
             </div>
 
-            <div className={`grid gap-3 ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : 'grid-cols-1'}`}>
+            <div className={`grid gap-3 items-start ${viewMode === 'grid' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : 'grid-cols-1'}`}>
               <BatchQueueCard onOpenDrawer={handleOpenBatchDrawer} />
               {activeTasks.map(t => <QueueCard key={t.id} task={t} onOpenDrawer={handleOpenSingleDrawer} />)}
             </div>
