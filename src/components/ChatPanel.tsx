@@ -657,7 +657,7 @@ function ParameterPanel({
     { value: 'seedance2.0fast', label: 'Fast' },
     { value: 'seedance2.0', label: 'Standard' },
   ];
-  const durations = [4, 5, 6, 8, 10, 12, 15];
+  const durations = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const ratios = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 
   return (
@@ -2824,7 +2824,7 @@ export function ChatPanel() {
               <PillSelect
                 icon={<Clock size={10} />}
                 label={`${selectedDuration}s`}
-                options={[4,5,6,8,10,12,15].map(d => ({ value: String(d), label: `${d}s` }))}
+                options={[4,5,6,7,8,9,10,11,12,13,14,15].map(d => ({ value: String(d), label: `${d}s` }))}
                 value={String(selectedDuration)}
                 onChange={(v) => setSelectedDuration(Number(v))}
                 disabled={!canInput}
