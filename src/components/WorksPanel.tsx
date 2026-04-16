@@ -1082,10 +1082,9 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
             <button
               key={i}
               className="w-8 h-8 rounded overflow-hidden border border-border-subtle flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-brand transition-all"
-              onClick={() => {
-                if (m.type === 'image') window.api.openFile(m.path);
-                else setPreviewUrl(toPlayable(m.path));
-              }}
+              onClick={() => setPreviewUrl(
+                m.type === 'image' ? localFileUrlSync(m.path) : toPlayable(m.path)
+              )}
               title={m.path}
             >
               {m.type === 'image'
@@ -1189,7 +1188,7 @@ function BatchTaskRow({ task, onPreview, zeroBasedIndex }: {
   return (
     <div
       onClick={() => { if (isDone && playUrl) onPreview(playUrl); }}
-      className={`flex items-start gap-3 rounded-md p-2.5 border transition-colors cursor-pointer ${
+      className={`group flex items-start gap-3 rounded-md p-2.5 border transition-colors cursor-pointer ${
         isFailed ? 'border-error/20 bg-error/5' : 'border-border-subtle bg-surface-1 hover:border-[rgba(255,255,255,0.16)]'
       }`}
     >
@@ -1201,7 +1200,12 @@ function BatchTaskRow({ task, onPreview, zeroBasedIndex }: {
       {/* Thumbnail — square 1:1 */}
       <div className="w-14 h-14 rounded overflow-hidden bg-surface-2 flex-shrink-0 relative">
         {task.outputFile ? (
-          <video src={playUrl} className="w-full h-full object-cover" muted />
+          <>
+            <video src={playUrl} className="w-full h-full object-cover" muted />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center pointer-events-none">
+              <Play size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {isFailed

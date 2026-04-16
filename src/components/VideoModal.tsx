@@ -5,8 +5,12 @@ interface VideoModalProps {
   onClose: () => void;
 }
 
+const IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$)/i;
+
 export function VideoModal({ url, onClose }: VideoModalProps) {
   if (!url) return null;
+
+  const isImage = IMAGE_EXTS.test(url);
 
   return (
     <div
@@ -26,16 +30,24 @@ export function VideoModal({ url, onClose }: VideoModalProps) {
           <X size={20} />
         </button>
 
-        {/* Video player */}
-        <video
-          src={url}
-          controls
-          autoPlay
-          className="w-full rounded-md"
-          style={{ maxHeight: '80vh', boxShadow: 'var(--shadow-lg)' }}
-        >
-          您的浏览器不支持视频播放
-        </video>
+        {isImage ? (
+          <img
+            src={url}
+            alt=""
+            className="w-full rounded-md object-contain"
+            style={{ maxHeight: '80vh', boxShadow: 'var(--shadow-lg)' }}
+          />
+        ) : (
+          <video
+            src={url}
+            controls
+            autoPlay
+            className="w-full rounded-md"
+            style={{ maxHeight: '80vh', boxShadow: 'var(--shadow-lg)' }}
+          >
+            您的浏览器不支持视频播放
+          </video>
+        )}
       </div>
     </div>
   );
