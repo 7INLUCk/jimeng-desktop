@@ -6,6 +6,7 @@ import { localFileUrl, localFileUrlSync, isVideoFile, isAudioFile, isImageFile, 
 import { SkillConfirmCard } from './confirm/SkillConfirmCard';
 import { ConfirmCard } from './confirm/ConfirmCard';
 import { BatchConfirmCard } from './confirm/BatchConfirmCard';
+import { KlingConfirmCard } from './confirm/KlingConfirmCard';
 
 // ── Mode Select Card (选择单个/批量) ──
 function ModeSelectCard({ onSelect }: { onSelect: (mode: TaskMode) => void }) {
@@ -3116,81 +3117,6 @@ function SubmittedSummaryBubble({ data }: {
   );
 }
 
-function KlingConfirmCard({ data, onConfirm, onCancel, onSaveAsSkill }: {
-  data: { prompt: string; imagePaths: string[]; duration: number; aspectRatio: string; cost: number };
-  onConfirm: () => void;
-  onCancel: () => void;
-  onSaveAsSkill?: () => void;
-}) {
-  const { credits } = useStore();
-  const canAfford = credits.balance >= data.cost;
-
-  return (
-    <div className="bg-surface-2 border border-border-subtle rounded-xl overflow-hidden max-w-[85%] animate-fade-in-up">
-      <div className="h-px bg-brand" />
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-brand flex items-center gap-1.5">
-            <Zap size={11} /> 可灵 O1 · 图生视频
-          </span>
-          <span className="text-[10px] text-text-muted bg-surface-3 px-1.5 py-0.5 rounded-full">
-            {data.duration}s · {data.aspectRatio}
-          </span>
-        </div>
-        {/* Thumbnails */}
-        <div className="flex gap-1.5 flex-wrap">
-          {data.imagePaths.slice(0, 7).map((p, i) => (
-            <div key={i} className="w-12 h-12 rounded-md overflow-hidden bg-surface-3 shrink-0 border border-border-subtle">
-              <img src={localFileUrlSync(p)} className="w-full h-full object-cover" alt="" />
-            </div>
-          ))}
-        </div>
-        {/* Prompt */}
-        {data.prompt && (
-          <p className="text-xs text-text-secondary leading-relaxed bg-surface-3 rounded-lg px-2.5 py-2">
-            {data.prompt}
-          </p>
-        )}
-        {/* Credit cost */}
-        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${canAfford ? 'bg-brand/10 border border-brand/20' : 'bg-error/10 border border-error/20'}`}>
-          <div className="flex items-center gap-1.5">
-            <Zap size={11} className={canAfford ? 'text-brand' : 'text-error'} />
-            <span className={`text-[11px] font-medium ${canAfford ? 'text-brand' : 'text-error'}`}>
-              消耗 {data.cost} 积分
-            </span>
-          </div>
-          <span className={`text-[10px] ${canAfford ? 'text-text-muted' : 'text-error'}`}>
-            余额 {credits.balance.toLocaleString()} {!canAfford && '· 不足'}
-          </span>
-        </div>
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-0.5">
-          <button
-            onClick={onConfirm}
-            disabled={!canAfford}
-            className="flex-1 py-2 bg-brand hover:bg-brand/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-medium rounded-lg transition-all"
-          >
-            确认生成
-          </button>
-          {onSaveAsSkill && (
-            <button
-              onClick={onSaveAsSkill}
-              className="px-3 py-2 bg-surface-3 hover:bg-brand/10 text-text-muted hover:text-brand text-xs rounded-lg transition-colors border border-border-subtle hover:border-brand/30"
-            >
-              保存为技能
-            </button>
-          )}
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-surface-3 hover:bg-border text-text-secondary text-xs rounded-lg transition-colors"
-          >
-            取消
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRetry, onLoginRetry, task, selectedModel, selectedDuration, selectedRatio, onDurationChange, onRatioChange, onModelChange, onEditMaterial, setGuidedStep, setMessages, setTaskMode, onInputRestore, onSaveAsSkill, onUpdateSkill, activeSkillName, onConfirmKling, onConfirmSkill, onCancelSkill }: {
   msg: Message;
@@ -3431,9 +3357,8 @@ function MessageBubble({ msg, onDownload, onGuideClick, onConfirm, onEdit, onRet
       <div className="flex justify-start">
         <KlingConfirmCard
           data={data}
-          onConfirm={() => onConfirmKling?.(data)}
+          onConfirm={(updated) => onConfirmKling?.({ ...data, ...updated })}
           onCancel={() => {}}
-          onSaveAsSkill={onSaveAsSkill ? () => onSaveAsSkill() : undefined}
         />
       </div>
     );
