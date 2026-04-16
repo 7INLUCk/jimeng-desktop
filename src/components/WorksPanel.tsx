@@ -553,51 +553,45 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
         )}
       </div>
 
-      {/* Info section */}
+      {/* Info section — fixed 3-row structure regardless of state */}
       <div className="px-3 pt-2.5 pb-1">
-        <p className="text-[12px] text-text-secondary line-clamp-2 leading-snug">
+        {/* Row 1: prompt — min-h reserves 2 lines so short prompts don't shrink the card */}
+        <p className="text-[12px] text-text-secondary line-clamp-2 leading-snug min-h-[2.0625rem]">
           {task.prompt || '无提示词'}
         </p>
+        {/* Row 2: model · duration */}
         <p className="text-[11px] text-text-muted mt-1">
           {modelName(task.model)} · {task.duration}s
         </p>
-        <p className="text-[11px] text-text-disabled mt-0.5">
-          {task.completedAt ? fmtDate(task.completedAt) : ''}
+        {/* Row 3: date (success) or error title (failed) — same line, same height */}
+        <p className="text-[11px] mt-0.5 truncate">
+          {isFailed
+            ? <span className="text-error flex items-center gap-1">
+                <AlertTriangle size={10} className="inline flex-shrink-0" />
+                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
+              </span>
+            : <span className="text-text-disabled">{task.completedAt ? fmtDate(task.completedAt) : ''}</span>
+          }
         </p>
       </div>
 
-      {/* Action row — success */}
-      {!isFailed && (
-        <div className="flex items-center justify-end gap-1 px-3 pb-2.5" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => navigator.clipboard.writeText(task.prompt)}
-            className="p-1.5 rounded-lg bg-surface-3 hover:bg-surface-2 text-text-muted hover:text-text-primary transition-colors"
-            title="复制提示词"
-          >
-            <Copy size={12} />
-          </button>
-          {(openablePath || canManualDownload) && (
-            <button
-              onClick={handleDownload}
-              className="p-1.5 rounded-lg bg-surface-3 hover:bg-surface-2 text-text-muted hover:text-text-primary transition-colors"
-              title={settings.autoDownload && openablePath ? '在文件夹中显示' : '下载'}
-            >
-              {settings.autoDownload && openablePath ? <FolderOpen size={12} /> : <Download size={12} />}
-            </button>
-          )}
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-1.5 rounded-lg bg-surface-3 hover:bg-error hover:text-white text-text-muted transition-colors"
-            title="删除"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* Action row — failed */}
-      {isFailed && (
-        <div className="flex items-center justify-end gap-1 px-3 pb-2.5" onClick={e => e.stopPropagation()}>
+      {/* Action row — always 3 button slots, invisible placeholder keeps width uniform */}
+      <div className="flex items-center justify-end gap-1 px-3 pb-2.5" onClick={e => e.stopPropagation()}>
+        {/* Slot 1: copy (success) or invisible placeholder (failed) */}
+        <button
+          onClick={() => !isFailed && navigator.clipboard.writeText(task.prompt)}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isFailed
+              ? 'invisible'
+              : 'bg-surface-3 hover:bg-surface-2 text-text-muted hover:text-text-primary'
+          }`}
+          title="复制提示词"
+          tabIndex={isFailed ? -1 : undefined}
+        >
+          <Copy size={12} />
+        </button>
+        {/* Slot 2: download/folder (success+file) or retry (failed) or invisible (success+no file) */}
+        {isFailed ? (
           <button
             onClick={() => onRetry(task.id)}
             className="p-1.5 rounded-lg bg-surface-3 hover:bg-brand hover:text-white text-text-muted transition-colors"
@@ -605,24 +599,26 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
           >
             <RefreshCw size={12} />
           </button>
+        ) : (openablePath || canManualDownload) ? (
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-1.5 rounded-lg bg-surface-3 hover:bg-error hover:text-white text-text-muted transition-colors"
-            title="删除"
+            onClick={handleDownload}
+            className="p-1.5 rounded-lg bg-surface-3 hover:bg-surface-2 text-text-muted hover:text-text-primary transition-colors"
+            title={settings.autoDownload && openablePath ? '在文件夹中显示' : '下载'}
           >
-            <Trash2 size={12} />
+            {settings.autoDownload && openablePath ? <FolderOpen size={12} /> : <Download size={12} />}
           </button>
-        </div>
-      )}
-
-      {/* FailedFooter — auto-expands card height */}
-      {isFailed && (
-        <FailedFooter
-          error={task.error}
-          model={task.model}
-          onRetry={() => onRetry(task.id)}
-        />
-      )}
+        ) : (
+          <span className="invisible p-1.5"><Download size={12} /></span>
+        )}
+        {/* Slot 3: delete (always) */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="p-1.5 rounded-lg bg-surface-3 hover:bg-error hover:text-white text-text-muted transition-colors"
+          title="删除"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
 
       {/* Delete confirm strip */}
       {showDeleteConfirm && (
@@ -723,19 +719,23 @@ function SingleCardList({ task, onPreview, onDelete, onRetry, highlighted = fals
           {isFailed && <div className="absolute inset-0 bg-error/20" />}
         </div>
 
-        {/* Text */}
+        {/* Text — fixed 2-row structure regardless of state */}
         <div className="flex-1 min-w-0">
           <p className="text-xs text-text-primary line-clamp-1">{task.prompt || '无提示词'}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[11px] ${STATUS_COLOR[task.status]}`}>{STATUS_LABEL[task.status]}</span>
-            <span className="text-[11px] text-text-disabled">{modelName(task.model)} · {task.duration}s · {fmtDate(task.createdAt)}</span>
+          <div className="flex items-center gap-1.5 mt-1 min-w-0">
+            <span className={`text-[11px] flex-shrink-0 ${STATUS_COLOR[task.status]}`}>{STATUS_LABEL[task.status]}</span>
+            {isFailed && (
+              <>
+                <span className="text-[11px] text-text-disabled flex-shrink-0">·</span>
+                <span className="text-[11px] text-error truncate">
+                  {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
+                </span>
+              </>
+            )}
+            <span className="text-[11px] text-text-disabled truncate flex-shrink-0 ml-auto">
+              {modelName(task.model)} · {task.duration}s
+            </span>
           </div>
-          {isFailed && (
-            <p className={`text-[10px] mt-0.5 ${CATEGORY_COLORS[parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').category].text}`}>
-              {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
-              {task.error ? ` — ${task.error.slice(0, 50)}${task.error.length > 50 ? '…' : ''}` : ''}
-            </p>
-          )}
         </div>
 
         {/* Actions */}
