@@ -522,7 +522,7 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
       {/* Thumbnail — overflow-hidden lives here, not on outer div */}
       <div className="aspect-square bg-surface-2 relative overflow-hidden rounded-t-2xl">
         {isFailed ? (
-          /* Failed state: dimmed thumbnail (if any) + error overlay */
+          /* Failed state: dimmed thumbnail + icon only — FailedFooter shows error text below */
           <>
             {task.thumbnailUrl && (
               <img
@@ -532,14 +532,8 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
                 loading="lazy"
               />
             )}
-            <div className="absolute inset-0 flex flex-col items-center justify-center px-3 text-center gap-1.5">
-              <AlertTriangle size={18} className="text-error/70 flex-shrink-0" />
-              <p className="text-[11px] font-medium text-error/90 leading-tight">
-                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
-              </p>
-              <p className="text-[10px] text-error/60 leading-tight line-clamp-3">
-                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').message}
-              </p>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <AlertTriangle size={24} className="text-error/50" />
             </div>
           </>
         ) : task.thumbnailUrl ? (
@@ -591,15 +585,9 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
         <p className="text-[11px] text-text-muted mt-1">
           {modelName(task.model)} · {task.duration}s{task.aspectRatio ? ` · ${task.aspectRatio}` : ''}
         </p>
-        {/* Row 3: date (success) or error title (failed) — same line, same height */}
+        {/* Row 3: date only — FailedFooter shows error for failed cards */}
         <p className="text-[11px] mt-0.5 truncate">
-          {isFailed
-            ? <span className="text-error flex items-center gap-1">
-                <AlertTriangle size={10} className="inline flex-shrink-0" />
-                {parseTaskError(task.error, task.model === 'kling-o1' ? 'kling' : 'seedance').title}
-              </span>
-            : <span className="text-text-disabled">{task.completedAt ? fmtDate(task.completedAt) : ''}</span>
-          }
+          <span className="text-text-disabled">{(!isFailed && task.completedAt) ? fmtDate(task.completedAt) : ''}</span>
         </p>
       </div>
 
@@ -644,15 +632,9 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
                 </div>
               </div>
             )}
-            {/* Slot 2: download/folder (success+file) or retry (failed) or invisible (success+no file) */}
+            {/* Slot 2: download/folder (success+file) or invisible (failed — FailedFooter handles retry) or invisible (success+no file) */}
             {isFailed ? (
-              <button
-                onClick={() => onRetry(task.id)}
-                className="p-1.5 rounded-lg bg-surface-3 hover:bg-brand hover:text-white text-text-muted transition-colors"
-                title="重试"
-              >
-                <RefreshCw size={12} />
-              </button>
+              <span className="invisible p-1.5"><Download size={12} /></span>
             ) : (openablePath || canManualDownload) ? (
               <button
                 onClick={handleDownload}
@@ -679,6 +661,10 @@ function SingleCardGrid({ task, onPreview, onDelete, onRetry, highlighted = fals
           </>
         )}
       </div>
+      {/* FailedFooter — expandable error strip with retry, shown only for failed cards */}
+      {isFailed && (
+        <FailedFooter error={task.error} model={task.model} onRetry={() => onRetry(task.id)} />
+      )}
     </div>
   );
 }
