@@ -910,6 +910,7 @@ function BatchCardList({ record, onClick }: { record: BatchHistoryRecord; onClic
 function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose: () => void }) {
   const { setPreviewUrl, removeBatchHistory } = useStore();
   const zeroBasedIndex = useMemo(() => record.tasks.some(t => t.index === 0), [record.tasks]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDownloadAll = useCallback(() => {
     const dir = record.tasks.find(t => t.outputFile)?.outputFile;
@@ -948,12 +949,20 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
             <span key={i} className="text-[10px] bg-surface-3 text-text-secondary px-2 py-0.5 rounded">{tag}</span>
           ))}
           {record.sharedMaterials.slice(0, 3).map((m, i) => (
-            <div key={i} className="w-6 h-6 rounded overflow-hidden border border-border-subtle flex-shrink-0">
+            <button
+              key={i}
+              className="w-8 h-8 rounded overflow-hidden border border-border-subtle flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-brand transition-all"
+              onClick={() => {
+                if (m.type === 'image') window.api.openFile(m.path);
+                else setPreviewUrl(toPlayable(m.path));
+              }}
+              title={m.path}
+            >
               {m.type === 'image'
                 ? <img src={localFileUrlSync(m.path)} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full bg-surface-3 flex items-center justify-center"><Film size={10} className="text-text-disabled" /></div>
+                : <div className="w-full h-full bg-surface-3 flex items-center justify-center"><Film size={12} className="text-text-disabled" /></div>
               }
-            </div>
+            </button>
           ))}
           {record.sharedMaterials.length > 3 && (
             <span className="text-[10px] text-text-disabled">+{record.sharedMaterials.length - 3}</span>
@@ -974,13 +983,39 @@ function BatchDrawer({ record, onClose }: { record: BatchHistoryRecord; onClose:
 
         {/* Footer actions */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle flex-shrink-0 bg-surface-1">
-          <button
-            onClick={() => { removeBatchHistory(record.id); onClose(); }}
-            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-error transition-colors"
-          >
-            <Trash2 size={13} />
-            删除记录
-          </button>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-error transition-colors"
+            >
+              <Trash2 size={13} />
+              删除记录
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-error">同时删除本地文件？</span>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="text-[11px] text-text-muted hover:text-text-primary transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  for (const t of record.tasks) {
+                    if (t.outputFile) {
+                      await window.api.deleteFile(t.outputFile).catch(() => {});
+                    }
+                  }
+                  removeBatchHistory(record.id);
+                  onClose();
+                }}
+                className="text-[11px] text-error hover:text-error/80 font-medium transition-colors"
+              >
+                删除
+              </button>
+            </div>
+          )}
           <button
             onClick={handleDownloadAll}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand/90 text-white text-xs rounded-md transition-colors"
@@ -1001,22 +1036,40 @@ function BatchTaskRow({ task, onPreview, zeroBasedIndex }: {
   onPreview: (url: string) => void;
   zeroBasedIndex: boolean;
 }) {
+  const { settings } = useStore();
   const isFailed = task.status === 'failed';
   const isDone = !isFailed;
   const playUrl = task.outputFile ? toPlayable(task.outputFile) : '';
   const displayIndex = zeroBasedIndex ? task.index + 1 : task.index;
 
+  const suggestedName = useMemo(() => {
+    const base = (task.prompt || 'video').slice(0, 20).replace(/[^\w\u4e00-\u9fa5]/g, '_');
+    return `${base}_batch_${task.index}.mp4`;
+  }, [task.prompt, task.index]);
+
+  const handleDownload = useCallback(async () => {
+    if (!task.outputFile) return;
+    if (settings.autoDownload) {
+      await window.api.showItemInFolder(task.outputFile);
+    } else {
+      await window.api.saveFileAs({ srcPath: task.outputFile, suggestedName });
+    }
+  }, [settings.autoDownload, task.outputFile, suggestedName]);
+
   return (
-    <div className={`flex items-start gap-3 rounded-md p-2.5 border transition-colors ${
-      isFailed ? 'border-error/20 bg-error/5' : 'border-border-subtle bg-surface-1'
-    }`}>
+    <div
+      onClick={() => { if (isDone && playUrl) onPreview(playUrl); }}
+      className={`flex items-start gap-3 rounded-md p-2.5 border transition-colors cursor-pointer ${
+        isFailed ? 'border-error/20 bg-error/5' : 'border-border-subtle bg-surface-1 hover:border-[rgba(255,255,255,0.16)]'
+      }`}
+    >
       {/* Index */}
       <span className="text-[10px] font-mono text-text-muted bg-surface-3 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">
         {String(displayIndex).padStart(2, '0')}
       </span>
 
-      {/* Thumbnail */}
-      <div className="w-16 h-10 rounded overflow-hidden bg-surface-2 flex-shrink-0 relative">
+      {/* Thumbnail — square 1:1 */}
+      <div className="w-14 h-14 rounded overflow-hidden bg-surface-2 flex-shrink-0 relative">
         {task.outputFile ? (
           <video src={playUrl} className="w-full h-full object-cover" muted />
         ) : (
@@ -1042,24 +1095,18 @@ function BatchTaskRow({ task, onPreview, zeroBasedIndex }: {
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {isDone && playUrl && (
-          <button
-            onClick={() => onPreview(playUrl)}
-            className="p-1.5 rounded bg-surface-3 hover:bg-brand hover:text-white text-text-muted transition-colors"
-            title="预览"
-          >
-            <Play size={11} />
-          </button>
-        )}
+      {/* Actions — stopPropagation so row-click doesn't fire */}
+      <div
+        className="flex items-center gap-1 flex-shrink-0"
+        onClick={e => e.stopPropagation()}
+      >
         {isDone && task.outputFile && (
           <button
-            onClick={() => window.api.openFile(task.outputFile!)}
+            onClick={handleDownload}
             className="p-1.5 rounded bg-surface-3 hover:bg-brand hover:text-white text-text-muted transition-colors"
-            title="打开文件"
+            title={settings.autoDownload ? '在文件夹中显示' : '另存为'}
           >
-            <Download size={11} />
+            {settings.autoDownload ? <FolderOpen size={11} /> : <Download size={11} />}
           </button>
         )}
       </div>
