@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('api', {
   getStatus: () => ipcRenderer.invoke('app:status'),
   openDownloadDir: () => ipcRenderer.invoke('app:open-download-dir'),
   openFile: (filePath) => ipcRenderer.invoke('app:open-file', filePath),
+  showItemInFolder: (filePath) => ipcRenderer.invoke('file:show-in-folder', filePath),
+  saveFileAs: (args) => ipcRenderer.invoke('file:save-as', args),
+  deleteFile: (filePath) => ipcRenderer.invoke('file:delete', filePath),
 
   // 事件监听
   onProgress: (callback) => {
